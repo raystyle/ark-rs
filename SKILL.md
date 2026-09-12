@@ -52,4 +52,4 @@
 
 ## 来源
 
-仓库 github.com/raystyle/ark-rs；细契约 R013（输出格式/退出码/冻结面）与 README。
+仓库 github.com/raystyle/ark_rs；细契约 R013（输出格式/退出码/冻结面）与 README。

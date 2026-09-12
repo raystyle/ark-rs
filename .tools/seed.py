@@ -231,7 +231,7 @@ def main() -> int:
     dry = args.plan
 
     if args.ark_dev or args.ark_stable or args.ome_dev or args.ome_stable:
-        repo = "raystyle/ark-rs"
+        repo = "raystyle/ark_rs"
         # 段与资产族配套（D41 B）：ark/ 段配 ark-* 主名，ome/ 段配 ome-* 兼容名；
         # CI 对两族各跑一次（双写双段同内容），停 ome/ 段判据为存量机水位清零
         if args.ark_dev:

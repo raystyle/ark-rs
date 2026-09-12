@@ -15,7 +15,7 @@
 | --- | --- |
 | 产品名 | Ark，副题 Agent Runtime Kit |
 | 命令名 | `ark` |
-| 仓库名 | raystyle/ark-rs，GitHub 改名已生效 |
+| 仓库名 | raystyle/ark_rs（2026-09-13 由 ark-rs 再更名，旧名重定向在读） |
 | 首发版 | 1.0.0，catalog、manifest、seq 门禁整体带入 |
 | 术语 | 泊位 berth，即 EnvRoot 内安装位 |
 | 环境变量 | `ARK_ROOT` 主名，读回 `OHMYENV_ROOT` 兼容；同设时主名优先（进自测断言） |

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- 仓再更名对齐：GitHub 侧 ark-rs 已更名 ark_rs（2026-09-13，旧名 301 重定向在读），`REPO` 常量与 seed 流水仓引用、remote、活文档（README clone 与 cd、AGENTS、SKILL、PLAN）统一切新名；镜像段与资产名（`ark/`、`ome/`、`ark-*`、`ome-*`）与仓名解耦不动。旧二进制直连 301 后 Bearer 被 ureq 默认策略丢弃仅回落匿名配额（公开仓 200），gh 回退与镜像段兜底不断源（codex 对线实证）。
+
 ## [1.0.0] - 2026-09-12
 
 major：更名 **Ark（Agent Runtime Kit）**（D41，用户定夺）。命令 `ark`；旧调用面全线读回兼容；存量供给双写双附过渡。计划经 codex 对线三轮 CONFIRM，四阶段（A 身份核心、B 分发链、C 自举与存量兼容、D 文档发版）逐批对线后落。

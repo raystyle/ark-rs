@@ -9,8 +9,8 @@
 Windows（PowerShell 7）：
 
 ```powershell
-git clone https://github.com/raystyle/ark-rs
-cd ark-rs
+git clone https://github.com/raystyle/ark_rs
+cd ark_rs
 cargo build --release
 .\target\release\ark init
 ```
@@ -18,8 +18,8 @@ cargo build --release
 Linux / WSL / macOS：
 
 ```bash
-git clone https://github.com/raystyle/ark-rs
-cd ark-rs
+git clone https://github.com/raystyle/ark_rs
+cd ark_rs
 cargo build --release
 ./target/release/ark init
 ```

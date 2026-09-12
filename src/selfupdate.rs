@@ -18,7 +18,7 @@ use crate::platform;
 
 /// 自升级源仓库（D41 更名；旧 ohmyenv-rs 名 GitHub 301 兜底，官方路径不断）。
 /// doctor 网络探针同源引用（自测 7 机检）。
-pub const REPO: &str = "raystyle/ark-rs";
+pub const REPO: &str = "raystyle/ark_rs";
 const UA: &str = "ark-selfupdate";
 
 /// 升级通道。
