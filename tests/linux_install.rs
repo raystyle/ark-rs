@@ -21,6 +21,30 @@ fn sandbox() -> (tempfile::TempDir, PathBuf, PathBuf) {
     (dir, home, env_root)
 }
 
+/// M028：gh 文件凭据转继。`--latest` 解析在 api.github.com 直连失败时回退
+/// `gh api`，gh 凭据查找序 GH_CONFIG_DIR > XDG_CONFIG_HOME > `$HOME/.config/gh`；
+/// 沙盒 HOME 隔离带走文件凭据，已登录机器照样报 "please run gh auth login"
+/// （WSL 总台实弹）。env token（GH_TOKEN/GITHUB_TOKEN）两通道 ark 均原生认且
+/// 随子进程继承，无需动作；这里给子进程注 GH_CONFIG_DIR 指向真实 gh 配置
+/// （hosts.yml 在位才注），凭据零落盘、不碰沙盒隔离（codex 对线裁定：复制
+/// hosts.yml 进临时目录会以 0644 同机可读，注入优于落盘）；CI 无登录静默跳过。
+fn relay_gh_credentials(cmd: &mut Command) {
+    if std::env::var_os("GH_TOKEN").is_some()
+        || std::env::var_os("GITHUB_TOKEN").is_some()
+        || std::env::var_os("GH_CONFIG_DIR").is_some()
+        || std::env::var_os("XDG_CONFIG_HOME").is_some()
+    {
+        return;
+    }
+    let Some(real_home) = std::env::var_os("HOME").map(PathBuf::from) else {
+        return;
+    };
+    let cfg = real_home.join(".config").join("gh");
+    if cfg.join("hosts.yml").is_file() {
+        cmd.env("GH_CONFIG_DIR", &cfg);
+    }
+}
+
 fn ome(home: &Path, env_root: &Path) -> Command {
     ome_reg(home, env_root, false)
 }
@@ -32,6 +56,8 @@ fn ome_reg(home: &Path, env_root: &Path, allow_path_reg: bool) -> Command {
     let catalog = env_root.join("tools.sandbox.toml");
     fs::copy(catalog_source(env_root), &catalog).expect("复制 catalog 到沙盒失败");
     let mut cmd = Command::cargo_bin("ark").expect("ome 二进制应已构建");
+    // M028：gh 凭据转继（GH_CONFIG_DIR 注入真实配置，见函数注）
+    relay_gh_credentials(&mut cmd);
     cmd.env("HOME", home);
     cmd.env("SHELL", "/bin/bash");
     cmd.env("ARK_CATALOG", &catalog);
