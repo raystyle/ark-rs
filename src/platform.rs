@@ -389,6 +389,56 @@ pub fn absorb_legacy_env_block(text: &str) -> String {
     rebuild_env_block(text, &merged_env_body(text))
 }
 
+/// O3（S017）：自定义钩子块 upsert（fnm 等；纯函数）。幂等且块体感知：
+/// 块在位而块体与目标不一致时原位重写（存量旧块体自愈升级，M027 防再犯），
+/// 同标记重复块收敛为一块，旧 ome 标记块迁移为 ark 标记，块外原文与顺序不动。
+/// 起标记未闭合（有头无尾）按既有家族语义截断收口：该行之后的原文一并丢弃。
+pub fn merge_hook_block(text: &str, marker: &str, lines: &[&str]) -> String {
+    let end = marker.replace(">>>", "<<<");
+    let legacy = marker.replace("ark", "ome");
+    let legacy_end = legacy.replace(">>>", "<<<");
+    // 旧 ome 标记行先迁移为 ark 标记（块体行不动，D41 口径）
+    let migrated = text
+        .replace(&format!("{legacy}\n"), &format!("{marker}\n"))
+        .replace(&format!("{legacy_end}\n"), &format!("{end}\n"));
+    let desired_body = lines.join("\n");
+    let mut out: Vec<String> = Vec::new();
+    let mut inserted = false;
+    let mut in_block = false;
+    for line in migrated.lines() {
+        let t = line.trim();
+        if t == marker || t == legacy {
+            in_block = true;
+            if !inserted {
+                out.push(marker.to_string());
+                out.push(desired_body.clone());
+                out.push(end.clone());
+                inserted = true;
+            }
+            continue;
+        }
+        if in_block {
+            if t == end || t == legacy_end {
+                in_block = false;
+            }
+            continue; // 旧块体行与结束标记行都不外带（换目标块体）
+        }
+        out.push(line.to_string());
+    }
+    if inserted {
+        let mut result = out.join("\n");
+        if migrated.ends_with('\n') {
+            result.push('\n');
+        }
+        return result;
+    }
+    // 无块：追加到文末（空文本直接以块起，避免文件首空行）
+    if migrated.is_empty() {
+        return format!("{marker}\n{desired_body}\n{end}\n");
+    }
+    format!("{migrated}\n{marker}\n{desired_body}\n{end}\n")
+}
+
 /// D41：检测旧 ome env 标记即收口迁移一次（init 与 self update 收尾钩子；
 /// POSIX 写 profile，Windows 注册表面无块概念、no-op）。
 pub fn migrate_legacy_env_block_once() {
@@ -399,17 +449,18 @@ pub fn migrate_legacy_env_block_once() {
 }
 
 /// 设置用户级环境变量（幂等）。Windows 写 HKCU\Environment 并同步当前进程；
-/// O3（S017）：写 profile 自定义钩子行（POSIX；Windows no-op）。幂等。
-pub fn ensure_profile_hook(marker: &str, line: &str) {
+/// O3（S017）：写 profile 自定义钩子块（POSIX；Windows no-op）。幂等且块体感知：
+/// 块体与目标不一致时原位重写（存量旧钩子自愈升级）。
+pub fn ensure_profile_hook(marker: &str, lines: &[&str]) {
     if user_env_write_blocked() {
         return;
     }
     #[cfg(not(windows))]
-    if let Err(e) = unix::ensure_profile_hook(marker, line) {
+    if let Err(e) = unix::ensure_profile_hook(marker, lines) {
         eprintln!("[WARN] profile 钩子写入失败: {e}");
     }
     #[cfg(windows)]
-    let _ = (marker, line);
+    let _ = (marker, lines);
 }
 
 /// Linux/macOS 写 profile 的 ome 标记块。用于装后遥测关闭等运行时开关。
@@ -780,27 +831,15 @@ mod unix {
         Ok(())
     }
 
-    /// O3（S017）：写自定义钩子行进独立标记块（幂等：块内已含该行不重写）。
-    /// D41：旧 ome 标记块改写为 ark 标记（块体行不动，幂等迁移），供 fnm 钩子等用。
-    pub(super) fn ensure_profile_hook(marker: &str, line: &str) -> Result<(), String> {
-        let mut text = read_profile()?;
-        let legacy = marker.replace("ark", "ome");
-        if text.contains(&legacy) {
-            let legacy_end = legacy.replace(">>>", "<<<");
-            let new_end = marker.replace(">>>", "<<<");
-            text = text
-                .replace(&format!("{legacy}\n"), &format!("{marker}\n"))
-                .replace(&format!("{legacy_end}\n"), &format!("{new_end}\n"));
+    /// O3（S017）：写自定义钩子块（幂等且块体感知：目标块体不一致原位重写，
+    /// 旧 ome 标记块迁移为 ark；逻辑在纯函数 merge_hook_block，此处只做 IO）。
+    pub(super) fn ensure_profile_hook(marker: &str, lines: &[&str]) -> Result<(), String> {
+        let text = read_profile()?;
+        let new_text = super::merge_hook_block(&text, marker, lines);
+        if new_text != text {
+            write_profile(&new_text)?;
         }
-        if text.contains(line) {
-            if text != read_profile()? {
-                write_profile(&text)?;
-            }
-            return Ok(());
-        }
-        let end = marker.replace(">>>", "<<<");
-        let new_text = format!("{text}\n{marker}\n{line}\n{end}\n");
-        write_profile(&new_text)
+        Ok(())
     }
 
     /// 摘除指定标记块（通用；保留其余原文）。
@@ -1249,6 +1288,94 @@ mod tests {
         let t2 = merge_env_exports(mixed, "K", "new");
         assert_eq!(t2.matches("export K=").count(), 1, "同 KEY 跨块不重复");
         assert!(t2.contains("export K=\"new\""));
+    }
+
+    /// M027：fnm 钩子块目标形态单一权威在 install.rs（FNM_HOOK_LINES），
+    /// 测试引用同源常量，块体漂移测试必红。
+    fn fnm_hook_lines() -> [&'static str; 2] {
+        crate::install::FNM_HOOK_LINES
+    }
+
+    #[test]
+    fn profile钩子块_无块追加与幂等() {
+        let marker = "# >>> ark fnm >>>";
+        let lines = fnm_hook_lines();
+        // 无块：追加到文末，原文在前，PATH 导出先于守卫 eval
+        let t1 = merge_hook_block("export A=1\n", marker, &lines);
+        assert!(t1.starts_with("export A=1\n"), "块外原文在前不动");
+        assert!(t1.contains(marker) && t1.contains("# <<< ark fnm <<<"));
+        assert!(t1.find(lines[0]).unwrap() < t1.find(lines[1]).unwrap(), "先导 PATH 再 eval");
+        assert!(lines.iter().all(|l| t1.contains(l)), "块体为单一权威形态");
+        // 幂等：二调逐字不变（防每装一次重写 profile）
+        assert_eq!(merge_hook_block(&t1, marker, &lines), t1);
+        // 空文本：只剩块
+        let empty = merge_hook_block("", marker, &lines);
+        assert!(empty.starts_with(marker));
+        assert_eq!(merge_hook_block(&empty, marker, &lines), empty);
+    }
+
+    #[test]
+    fn profile钩子块_存量裸eval块体原位升级() {
+        // M027 实弹存量形态：块在位但块体是裸 eval（执行序早于 PATH 含 ~/.local/bin）
+        let marker = "# >>> ark fnm >>>";
+        let lines = fnm_hook_lines();
+        let old = "alias ll='ls -l'\n\
+                   # >>> ark fnm >>>\n\
+                   eval \"$(fnm env)\"\n\
+                   # <<< ark fnm <<<\n\
+                   export B=2\n";
+        let t = merge_hook_block(old, marker, &lines);
+        assert!(
+            !t.lines().any(|l| l.trim() == "eval \"$(fnm env)\""),
+            "旧裸钩子行应被替换（守卫内 eval 除外）"
+        );
+        assert!(t.contains(lines[1]), "新块体在位");
+        assert_eq!(t.matches(marker).count(), 1, "不重复建块");
+        // 原位升级：块的前后原文与相对顺序不动
+        assert!(t.find("alias ll").unwrap() < t.find(marker).unwrap());
+        assert!(t.find(marker).unwrap() < t.find("export B=2").unwrap());
+        // 升级后幂等
+        assert_eq!(merge_hook_block(&t, marker, &lines), t);
+    }
+
+    #[test]
+    fn profile钩子块_旧ome标记迁移与重复块收敛() {
+        let marker = "# >>> ark fnm >>>";
+        let lines = fnm_hook_lines();
+        // 旧 ome 标记块：迁移为 ark 标记且块体一并升级
+        let old = "# >>> ome fnm >>>\neval \"$(fnm env)\"\n# <<< ome fnm <<<\n";
+        let t = merge_hook_block(old, marker, &lines);
+        assert!(!t.contains(">>> ome fnm"), "旧标记退役");
+        assert!(t.contains(marker) && t.contains(lines[1]));
+        assert_eq!(merge_hook_block(&t, marker, &lines), t, "迁移后幂等");
+        // 同标记重复块收敛为一块
+        let block = "# >>> ark fnm >>>\nwhatever\n# <<< ark fnm <<<\n";
+        let dup = format!("{block}{block}");
+        let t2 = merge_hook_block(&dup, marker, &lines);
+        assert_eq!(t2.matches(marker).count(), 1, "重复块收敛");
+        assert!(!t2.contains("whatever"), "残体不带");
+    }
+
+    #[test]
+    fn profile钩子块_未闭合截断与标记空白容错() {
+        // 未闭合起标记：既有家族语义，该行之后原文截断收口（doc comment 已钉）
+        let marker = "# >>> ark fnm >>>";
+        let lines = fnm_hook_lines();
+        let unclosed = "A=1\n# >>> ark fnm >>>\nold body\nB=2\n";
+        let t = merge_hook_block(unclosed, marker, &lines);
+        assert!(!t.contains("B=2") && !t.contains("old body"), "未闭合截断收口");
+        assert!(t.contains("A=1\n") && t.contains(lines[1]), "闭标记前原文与新块体保留");
+        assert_eq!(merge_hook_block(&t, marker, &lines), t, "截断后幂等");
+        // 标记行带行首行尾空白：识别并规范重写
+        let padded = "A=1\n  # >>> ark fnm >>>  \nold\n\t# <<< ark fnm <<< \nB=2\n";
+        let t2 = merge_hook_block(padded, marker, &lines);
+        assert!(!t2.contains("old"), "空白标记块体同样替换");
+        assert!(t2.contains("A=1\n") && t2.contains("B=2\n"), "块外原文不动");
+        // 原文无尾换行：插入路径保持无尾换行态且幂等
+        let no_nl = "A=1\n# >>> ark fnm >>>\nold\n# <<< ark fnm <<<";
+        let t3 = merge_hook_block(no_nl, marker, &lines);
+        assert!(!t3.ends_with('\n'), "无尾换行态保持");
+        assert_eq!(merge_hook_block(&t3, marker, &lines), t3, "无尾换行幂等");
     }
 
     #[cfg(not(windows))]

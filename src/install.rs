@@ -572,16 +572,22 @@ fn fnm_node_bin() -> Option<PathBuf> {
     None
 }
 
-/// O3-b：fnm 装后写 profile 钩子（`eval "$(fnm env)"` 进 ome fnm 标记块，幂等）。
+/// M027：fnm profile 钩子块体（单一权威，platform 测试引用）。自含 PATH 导出
+/// （不依赖 rc 内相对执行序：裸 `eval "$(fnm env)"` 在 PATH 含 ~/.local/bin 之前
+/// 执行会报 fnm not found）；`command -v` 守卫缺席静默，且 if 形态不改变 source
+/// 退出码（errexit 下 source rc 仍返回 0）。
+pub(crate) const FNM_HOOK_LINES: [&str; 2] = [
+    "export PATH=\"$HOME/.local/bin:$PATH\"",
+    "if command -v fnm >/dev/null 2>&1; then eval \"$(fnm env)\"; fi",
+];
+
+/// O3-b：fnm 装后写 profile 钩子（ark fnm 标记块，幂等且块体感知）。
 /// 交互 shell 经钩子取 node；非交互（omc hostExec）由 fnm_node_bin 进程内解析治本。
-/// node 版本供给归数据面（建议 omc 在 manifest fnm 节配 post_install：
-/// fnm install <ver> 加 fnm default <ver>，非交互同样可跑——fnm 在 ~/.local/bin）。
+/// node 版本供给归数据面（manifest fnm 节 post_install：`fnm install <ver>` 加
+/// `fnm default <ver>`，fnm 在 ~/.local/bin，非交互同样可跑）。
 fn ensure_fnm_shell_hook(name: &str) {
     if name == "fnm" {
-        crate::platform::ensure_profile_hook(
-            "# >>> ark fnm >>>",
-            "eval \"$(fnm env)\"",
-        );
+        crate::platform::ensure_profile_hook("# >>> ark fnm >>>", &FNM_HOOK_LINES);
     }
 }
 
