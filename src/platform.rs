@@ -513,8 +513,14 @@ pub fn remove_user_env_var(key: &str) -> Result<bool, String> {
 /// 托管块内（读序双块合并体）摘行、体空则两块整撤不残留空标记；托管块之外
 /// 的同名 `export KEY=` 行（遗产脚本或用户手写形态）同样摘除，
 /// 否则旧变量继续生效而日志已报「已撤」（对线 R1）。
+/// 快速路径：全文件无该键的 export 行时**原样返回**——重建本身会重排块位
+/// （env 块不在文末时后续 install 追加 PATH 块即此常态），恒等才能让
+/// 「文本变化」等价「真撤了」（对线 R1 复审残留）。
 pub fn remove_env_export(text: &str, key: &str) -> String {
     let prefix_tag = format!("export {key}=");
+    if !text.lines().any(|l| l.trim_start().starts_with(&prefix_tag)) {
+        return text.to_string();
+    }
     let body: Vec<String> = merged_env_body(text)
         .into_iter()
         .filter(|l| !l.trim_start().starts_with(&prefix_tag))
@@ -1369,6 +1375,11 @@ mod tests {
         assert!(t4.contains("export A=1"), "块外原文不动");
         // 摘不存在的键：块在文末的规范形态下幂等不变
         assert_eq!(remove_env_export(&t1, "NOPE"), t1);
+        // 摘不存在的键：env 块不在文末（后续 install 追加 PATH 块的常态）也必须恒等，
+        // 不得因块重排而误报「已撤」（对线 R1 复审残留）
+        let mut mid = t1.clone();
+        mid.push_str("# >>> ark PATH\nexport PATH=\"/x:$PATH\"\n# <<< ark PATH\n");
+        assert_eq!(remove_env_export(&mid, "NOPE"), mid, "无该键时不得重排");
         // 块外同名行（遗产脚本/用户手写形态）同样摘除（对线 R1：撤变量不分写入者）
         let legacy = "export UV_INDEX_URL=\"https://old.example\"\nalias ll='ls -l'\n";
         let t5 = remove_env_export(legacy, "UV_INDEX_URL");
