@@ -2,7 +2,9 @@
 
 > 版本里程碑。SemVer `vMAJOR.MINOR.PATCH`。
 
-## [Unreleased]
+## [1.1.0] - 2026-09-13
+
+minor：**D42 运行时源中国镜像统一落 manifest**（用户重投裁定 + 补充裁定）。manifest DSL 扩 mirror 节（数据面声明、引擎落源，不散各端脚本）；rust 接管扩 POSIX。对线 codex 三轮 CONFIRM（六结论全采纳 + 复审残留 + 确认轮收口 env_set 注入面）。omc 数据面四件同批就绪（mirror 三节、rust POSIX 字段、镜像桶 rustup-init、对岸 lint 谓词）。
 
 - 仓再更名对齐：GitHub 侧 ark-rs 已更名 ark_rs（2026-09-13，旧名 301 重定向在读），`REPO` 常量与 seed 流水仓引用、remote、活文档（README clone 与 cd、AGENTS、SKILL、PLAN）统一切新名；镜像段与资产名（`ark/`、`ome/`、`ark-*`、`ome-*`）与仓名解耦不动。旧二进制直连 301 后 Bearer 被 ureq 默认策略丢弃仅回落匿名配额（公开仓 200），gh 回退与镜像段兜底不断源（codex 对线实证）。
 - manifest mirror 节（D42 运行时源中国镜像统一落 manifest）：L1 `mirror` 节引擎落码（`env`/`env_unset`/`npm_registry`/`bunfig_registry`/`uv_index`/`pip_index`/`cargo_config` 七键，值数据面声明、落点与合并语义引擎按类型实现；schema 不升，旧引擎静默忽略前向兼容）；接线 `apply_manifest_primitives`（env_set 后、post_install 前，幂等分支与早退通道共用，存量端升级即得）；npmrc 行级 upsert 保留认证行、bunfig 尾斜杠等价比对、uv/pip 落各平台原生发现位（win `%APPDATA%` 实证 uv 只认此处不认 `~/.config/uv`）、cargo config 按 CARGO_HOME 解析序内容比对；platform 增 `remove_user_env_var`（win 注册表删值 / POSIX env 块摘行，块空整块收口）；bunfig 写语义收编 manifest 单一权威（heal_bunfig 委托）；catalog_lint 增 mirror 面（空节应省略）；fixtures 增 fnm/uv/bun 三节基准形态（omc 数据面抄写基准）。Windows 真机实证：四键终态（npmrc/bunfig/uv.toml/pip.ini）加镜像 env 加 env_unset 撤旧全链幂等绿，`npm config get registry` 读出 npmmirror。
