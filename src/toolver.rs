@@ -520,14 +520,26 @@ mod tests {
         // 探测态：glob 取 0.16.0（非字典序 0.9.0）
         let p = exe_path(&tool, env_root).expect("应解析");
         assert!(
-            p.ends_with(r"zig-x86_64-windows-0.16.0\zig.exe"),
+            p.ends_with(
+                format!(
+                    "zig-x86_64-windows-0.16.0{sep}zig{}",
+                    std::env::consts::EXE_SUFFIX
+                )
+                .as_str()
+            ),
             "{}",
             p.display()
         );
         // 定版态：直替换
         let pv = exe_path_for_version(&tool, env_root, "0.17.0").expect("应解析");
         assert!(
-            pv.ends_with(r"zig-x86_64-windows-0.17.0\zig.exe"),
+            pv.ends_with(
+                format!(
+                    "zig-x86_64-windows-0.17.0{sep}zig{}",
+                    std::env::consts::EXE_SUFFIX
+                )
+                .as_str()
+            ),
             "{}",
             pv.display()
         );
@@ -535,7 +547,13 @@ mod tests {
         std::fs::remove_dir_all(&zig_root).expect("清");
         let pn = exe_path(&tool, env_root).expect("应解析");
         assert!(
-            pn.ends_with(r"zig-x86_64-windows-0.0.0\zig.exe"),
+            pn.ends_with(
+                format!(
+                    "zig-x86_64-windows-0.0.0{sep}zig{}",
+                    std::env::consts::EXE_SUFFIX
+                )
+                .as_str()
+            ),
             "{}",
             pn.display()
         );
