@@ -1615,6 +1615,7 @@ mod tests {
             asset_size: 0,
             asset_url: "https://example.invalid/age.zip".to_string(),
             shasums_url: None,
+        official_sha256: None,
         };
         let changed = write_pin(&path, "age", &res)?;
         assert!(changed, "1.3.1 到 1.4.0 应判定为版本变更");
@@ -1653,6 +1654,7 @@ mod tests {
             asset_size: 0,
             asset_url: "https://example.invalid/age.zip".to_string(),
             shasums_url: None,
+        official_sha256: None,
         };
         let changed = write_pin(&path, "age", &res)?;
         assert!(!changed, "同版本 re-pin 不算变更");
@@ -1679,6 +1681,7 @@ mod tests {
             asset_size: 0,
             asset_url: "https://example.invalid/age.zip".to_string(),
             shasums_url: None,
+        official_sha256: None,
         };
         write_pin(&path, "age", &res)?;
 
@@ -1705,6 +1708,7 @@ mod tests {
             asset_size: 0,
             asset_url: "https://example.invalid/demo.zip".to_string(),
             shasums_url: None,
+        official_sha256: None,
         };
         write_pin(&path, "demo", &res)?;
 

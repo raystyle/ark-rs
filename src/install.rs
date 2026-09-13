@@ -101,13 +101,22 @@ fn install_dir(
 }
 
 /// 注册 PATH 的目录：official 取 exe 上一级（展开后），其余按平台字段解析（支持 `~` 与 `$VAR`）。
-fn bin_dir(def: &Tool, env_root: &Path, is_official: bool) -> Result<Option<PathBuf>, String> {
+fn bin_dir(
+    def: &Tool,
+    env_root: &Path,
+    is_official: bool,
+    version: &str,
+) -> Result<Option<PathBuf>, String> {
     if is_official {
         let exe = toolver::exe_path(def, Path::new("."))?;
         return Ok(exe.parent().map(Path::to_path_buf));
     }
+    // {version} 占位（D43 zig 版本目录布局）：以解析版本直替换（PATH 指向本版目录）
     Ok(def.bin().map(|b| {
-        crate::platform::join_if_relative(env_root, crate::platform::expand_install_path(b))
+        crate::platform::join_if_relative(
+            env_root,
+            crate::platform::expand_install_path(&b.replace("{version}", version)),
+        )
     }))
 }
 
@@ -177,7 +186,7 @@ pub fn install_tool(
             eprintln!("[OK] 已回填 sha256（命中缓存）");
         }
         if opts.configure {
-            register_bin(def, env_root, is_official)?;
+            register_bin(def, env_root, is_official, &res.version)?;
             // 老环境补别名（bun 已存在但同目录缺 bunx.exe）：manifest shims 节唯一来源
             // （omc 数据面已上线并验收，2026-09-11 撤 ensure_bunx_shim 内建双轨）。
             // 幂等分支同样执行 post_install：既是补装漏，也是主分支失败后的重试路径（共识③）
@@ -318,10 +327,12 @@ pub fn install_tool(
     extract::extract_asset(name, def, &cache, target_dir, env_root)?;
 
     // 装后验版本（5 次递增重试：7zsfx 等解包后文件/杀软可能瞬态未就绪）
-    let installed = toolver::installed_version_retried(&exe_path, def).ok_or_else(|| {
+    // D43：装后验证锚定刚装版本（占位布局 glob 取 max 在降级场景会锚错）
+    let verify_exe = toolver::exe_path_for_version(def, env_root, &res.version)?;
+    let installed = toolver::installed_version_retried(&verify_exe, def).ok_or_else(|| {
         format!(
             "{name} 安装后未找到可执行文件或无法读取版本: {}",
-            exe_path.display()
+            verify_exe.display()
         )
     })?;
     if installed != res.version {
@@ -330,14 +341,17 @@ pub fn install_tool(
             res.version
         ));
     }
-    eprintln!("[OK] {name} 安装完成: {installed} @ {}", exe_path.display());
+    eprintln!(
+        "[OK] {name} 安装完成: {installed} @ {}",
+        verify_exe.display()
+    );
 
     // 成功才回写 lock
     if sha_backfilled {
         catalog::write_sha256(&cat.path, name, &sha)?;
     }
     if opts.configure {
-        register_bin(def, env_root, is_official)?;
+        register_bin(def, env_root, is_official, &res.version)?;
         // D39 R016 L1/L2：manifest 节的原语在装成后统一应用（env_set、shims、post_install）
         apply_manifest_primitives(ms, name, shim_dir)?;
         ensure_user_bin_link(name, &exe_path);
@@ -453,12 +467,17 @@ fn apply_manifest_primitives(
 }
 
 /// 注册 bin 目录进用户 PATH（Windows 注册表 / Linux profile）。
-fn register_bin(def: &Tool, env_root: &Path, is_official: bool) -> Result<(), String> {
+fn register_bin(
+    def: &Tool,
+    env_root: &Path,
+    is_official: bool,
+    version: &str,
+) -> Result<(), String> {
     // npm-tgz：bin 落 npm 全局 bin（npm 自管 PATH 面），不注册 EnvRoot 目录（防死链）
     if def.extract() == Some("npm-tgz") {
         return Ok(());
     }
-    if let Some(dir) = bin_dir(def, env_root, is_official)? {
+    if let Some(dir) = bin_dir(def, env_root, is_official, version)? {
         if crate::platform::add_user_path(&dir)? {
             eprintln!("[OK] PATH 已注册: {}（新终端生效）", dir.display());
         } else {
@@ -521,7 +540,7 @@ fn install_uv_git(
         eprintln!("[OK] {name} 已锁定: {}", res.version);
     }
     if opts.configure {
-        register_bin(def, Path::new("."), true)?;
+        register_bin(def, Path::new("."), true, &res.version)?;
     }
     if upgrading {
         eprintln!("[HINT] 升级已停守护栈；恢复值守: {name} x-monitor");

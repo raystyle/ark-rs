@@ -16,7 +16,24 @@ use crate::catalog::Tool;
 /// exe 路径解析：official（exe 使用环境变量或绝对路径）展开为绝对路径；
 /// 其余 Windows 下相对 EnvRoot；Linux / macOS 下有平台专属 exe（`linux_exe`/`mac_exe`，
 /// 相对 install_dir）走 dir 展开，回退通用 exe（Windows 风格，自带 dir 段）时相对 EnvRoot。
+/// 布局含 `{version}` 占位（D43 zig 版本目录型）：无版本上下文时 glob 扫描占位段取
+/// **semver 最大**的在位版本（探测语义；字典序会把 0.9 排 0.16 前，M025 同型）；
+/// 无在位版本返回占位填充 0.0.0 的路径（探测 Command 失败即 None=未装）。
 pub fn exe_path(tool: &Tool, env_root: &Path) -> Result<PathBuf, String> {
+    exe_path_inner(tool, env_root, None)
+}
+
+/// 定版形态（D43）：占位以给定版本直替换（装后验证锚定刚装版本，glob 取 max 在
+/// 降级场景会锚错）；无占位时与 `exe_path` 等价。
+pub fn exe_path_for_version(
+    tool: &Tool,
+    env_root: &Path,
+    version: &str,
+) -> Result<PathBuf, String> {
+    exe_path_inner(tool, env_root, Some(version))
+}
+
+fn exe_path_inner(tool: &Tool, env_root: &Path, version: Option<&str>) -> Result<PathBuf, String> {
     let exe = tool.exe().ok_or_else(|| "工具缺少 exe 字段".to_string())?;
     // npm-tgz 型：bin 落 npm 全局 bin（随各端 node 生态走，无静态路径），PATH 现查；
     // 未在位时返回裸名（探测 None 即未装）
@@ -31,9 +48,22 @@ pub fn exe_path(tool: &Tool, env_root: &Path) -> Result<PathBuf, String> {
     if crate::platform::is_official_exe(exe) {
         return Ok(PathBuf::from(expand_env_vars(exe)));
     }
+    // {version} 占位（D43）：定版直替换；探测态 glob 取 semver 最大在位版本
+    let fill = |layout: &str, base: &Path| -> PathBuf {
+        if !layout.contains("{version}") {
+            return base.join(layout);
+        }
+        if let Some(v) = version {
+            return base.join(layout.replace("{version}", v));
+        }
+        match glob_version_segment(layout, base) {
+            Some(seg) => base.join(seg),
+            None => base.join(layout.replace("{version}", "0.0.0")),
+        }
+    };
     #[cfg(windows)]
     {
-        Ok(env_root.join(exe))
+        Ok(fill(exe, env_root))
     }
     #[cfg(not(windows))]
     if let Some(pexe) = tool.platform_exe() {
@@ -44,11 +74,50 @@ pub fn exe_path(tool: &Tool, env_root: &Path) -> Result<PathBuf, String> {
             })
             .unwrap_or_else(|| env_root.to_path_buf());
         // 专属 exe 允许带子目录（如 python 的 bin/python），将反斜杠统一为正斜杠
-        Ok(base.join(pexe.replace('\\', "/")))
+        Ok(fill(&pexe.replace('\\', "/"), &base))
     } else {
         // 通用 exe 是 Windows 名录风格：路径自带 dir 段，相对 EnvRoot 直接拼
-        Ok(env_root.join(exe.replace('\\', "/")))
+        Ok(fill(&exe.replace('\\', "/"), env_root))
     }
+}
+
+/// 版本目录占位 glob（D43，纯路径扫描）：布局串首个含 `{version}` 的段列其父目录，
+/// 前后缀锚定提取中段按 semver 取最大（zig 版本目录型布局的在位发现）。
+/// 返回占位段填充后的完整布局串；无在位候选返回 None。
+fn glob_version_segment(layout: &str, base: &Path) -> Option<String> {
+    let sep = if cfg!(windows) { '\\' } else { '/' };
+    let parts: Vec<&str> = layout.split(sep).collect();
+    let idx = parts.iter().position(|p| p.contains("{version}"))?;
+    let (pre, rest) = parts[idx].split_once("{version}")?;
+    let suffix = rest
+        .trim_start_matches('{')
+        .trim_end_matches('}')
+        .to_string();
+    let mut best: Option<(Vec<u64>, String)> = None;
+    // 前缀段以 base 为根拼接（布局串是相对形态，无 base 会扫到 CWD）
+    let mut root = base.to_path_buf();
+    for p in &parts[..idx] {
+        root = root.join(p);
+    }
+    let rd = std::fs::read_dir(&root).ok()?;
+    for e in rd {
+        let Ok(entry) = e else { continue };
+        let name = entry.file_name().to_string_lossy().to_string();
+        let Some(mid) = name.strip_prefix(pre).and_then(|m| m.strip_suffix(&suffix)) else {
+            continue;
+        };
+        if let Some(key) = crate::resolve::version_key(mid) {
+            if best.as_ref().is_none_or(|(k, _)| {
+                crate::resolve::semver_cmp(&key, k) == std::cmp::Ordering::Greater
+            }) {
+                best = Some((key, name));
+            }
+        }
+    }
+    let (_, name) = best?;
+    let mut out: Vec<String> = parts.iter().map(|s| s.to_string()).collect();
+    out[idx] = name;
+    Some(out.join(&sep.to_string()))
 }
 
 /// 工具是否 official 布局（exe 使用环境变量或绝对路径，installDir/bin 走官方目录，不进 EnvRoot）。
@@ -422,5 +491,46 @@ mod tests {
             PathBuf::from(r"C:\official\rmux\bin\rmux.exe")
         );
         assert!(is_official(&official));
+    }
+    /// D43：版本目录占位 glob——取 semver 最大在位版本（0.16.0 压过 0.9.0，字典序反例）；
+    /// 定版形态直替换；无在位时 0.0.0 填充（探测 None=未装）。
+    #[test]
+    #[cfg(windows)]
+    fn 版本目录占位_glob取semver最大与定版替换() {
+        let dir = tempfile::tempdir().expect("临时目录");
+        let zig_root = dir.path().join("zig");
+        for v in ["0.9.0", "0.16.0"] {
+            let bin = zig_root.join(format!("zig-x86_64-windows-{v}"));
+            std::fs::create_dir_all(&bin).expect("建版本目录");
+            std::fs::write(bin.join("zig.exe"), b"fake").expect("写 exe");
+        }
+        let tool = Tool {
+            exe: Some(r"zig\zig-x86_64-windows-{version}\zig.exe".to_string()),
+            ..Default::default()
+        };
+        let env_root = dir.path();
+        // 探测态：glob 取 0.16.0（非字典序 0.9.0）
+        let p = exe_path(&tool, env_root).expect("应解析");
+        assert!(
+            p.ends_with(r"zig-x86_64-windows-0.16.0\zig.exe"),
+            "{}",
+            p.display()
+        );
+        // 定版态：直替换
+        let pv = exe_path_for_version(&tool, env_root, "0.17.0").expect("应解析");
+        assert!(
+            pv.ends_with(r"zig-x86_64-windows-0.17.0\zig.exe"),
+            "{}",
+            pv.display()
+        );
+        // 无在位（清空重建）：探测路径落到 0.0.0 填充（不存在即未装）
+        std::fs::remove_dir_all(&zig_root).expect("清");
+        let pn = exe_path(&tool, env_root).expect("应解析");
+        assert!(
+            pn.ends_with(r"zig-x86_64-windows-0.0.0\zig.exe"),
+            "{}",
+            pn.display()
+        );
+        assert!(!pn.exists(), "填充路径应不存在（未装）");
     }
 }

@@ -34,6 +34,9 @@ pub struct Resolution {
     pub asset_size: u64,
     pub asset_url: String,
     pub shasums_url: Option<String>,
+    /// 官方 sha256 直值锚（D43，ziglang index 形态 per-target shasum）：
+    /// checksum 官方链最前（优先于清单与 digest），亦是 D44 镜像段校验锚。
+    pub official_sha256: Option<String>,
 }
 
 /// 解析工具目标版本与资产：uv-git > cdn_index_url > cdn_url > GitHub release 四分支。
@@ -83,101 +86,149 @@ fn resolve_uv_git(name: &str, tool: &Tool, opts: &ResolveOptions) -> Result<Reso
         asset_size: 0,
         asset_url: format!("git+https://github.com/{repo}"),
         shasums_url: None,
+        official_sha256: None,
     })
 }
 
-/// 分支 (a)：HashiCorp 式 index.json（如 vault）。
-/// latest 时滤掉含 + 的企业变体（+ent/+ent.hsm 等），按语义版本取最大。
+/// index 版本集 latest 选取（纯函数，D43）：滤含 `+` 变体与无法解析 semver 的键
+/// （ziglang 的 `master` 自然滤掉），取 semver 最大。
+fn index_pick_latest<'a>(keys: impl Iterator<Item = &'a String>) -> Option<String> {
+    let oss: Vec<String> = keys
+        .filter(|k| !k.contains('+') && version_key(k).is_some())
+        .cloned()
+        .collect();
+    pick_max_semver(&oss)
+}
+
+/// 分支 (a)：index.json 版本索引，双形态（D43 泛化）：
+/// - HashiCorp 形（如 vault）：`{versions: {ver: {builds: [...], shasums}}}`；
+/// - ziglang 形（如 zig）：顶层键即版本（`{master: {...}, 0.17.0: {x86_64-windows: {tarball, shasum, size}}}`），
+///   per-target 对象的 `tarball` 即资产 URL、`shasum` 即官方 sha 直值锚。
+///
+/// latest 选取统一滤含 `+` 的变体与无法解析 semver 的键（zig 的 `master` 自然滤掉）。
+/// **无 pin 条目默认 latest**（D43：去锁条目 install/update 均解析最新；有 pin 条目沿 pin）。
 fn resolve_cdn_index(name: &str, tool: &Tool, opts: &ResolveOptions) -> Result<Resolution, String> {
     let index_url = tool
         .cdn_index_url
         .as_deref()
         .ok_or_else(|| format!("{name} 缺少 cdn_index_url"))?;
 
-    // 版本选择对齐 pwsh：-Version > -Latest > 已 pin version（平台分列）> 报错
-    let pinned = if let Some(v) = &opts.version {
-        Some(v.clone())
-    } else if opts.latest {
-        None
-    } else if let Some(v) = tool.pin_version() {
-        Some(v.to_string())
-    } else {
-        return Err(format!("{name} 需 --version 或先 pin（HashiCorp 来源）"));
-    };
+    // 版本选择：--version > pin > （无 pin 默认 latest，D43）；latest 旗标恒 latest
+    let pinned = opts
+        .version
+        .clone()
+        .or_else(|| tool.pin_version().map(str::to_string));
+    let want_latest = opts.latest || pinned.is_none();
 
     let index = get_json_retried(index_url, false)?;
+    // 版本集双形态：`versions` 子对象（HashiCorp）缺省时顶层对象（ziglang）
     let versions = index
         .get("versions")
         .and_then(Value::as_object)
-        .ok_or_else(|| format!("index.json 缺少 versions 字段: {index_url}"))?;
+        .or_else(|| index.as_object())
+        .ok_or_else(|| format!("index.json 非对象或缺少 versions 字段: {index_url}"))?;
 
-    let ver = if opts.latest {
-        let oss: Vec<String> = versions
-            .keys()
-            .filter(|k| !k.contains('+'))
-            .cloned()
-            .collect();
-        pick_max_semver(&oss).ok_or_else(|| format!("index.json 无 OSS 版本: {index_url}"))?
+    let ver = if want_latest {
+        index_pick_latest(versions.keys())
+            .ok_or_else(|| format!("index.json 无可用版本: {index_url}"))?
     } else {
-        pinned.ok_or_else(|| format!("{name} 需 --version 或先 pin（HashiCorp 来源）"))?
+        pinned.ok_or_else(|| format!("{name} 需 --version 或先 pin（index 来源）"))?
     };
 
     let info = versions
         .get(&ver)
-        .ok_or_else(|| format!("HashiCorp index.json 无版本 {ver}"))?;
+        .ok_or_else(|| format!("index.json 无版本 {ver}: {index_url}"))?;
     let real_ver = info
         .get("version")
         .and_then(Value::as_str)
         .unwrap_or(&ver)
         .to_string();
 
-    // 资产名模板里的 {version} 以正则转义后的真实版本替换（对齐 pwsh）；
-    // pattern 走平台访问器（vault 类工具各平台资产名不同）
-    let pattern = tool
+    // pattern 走平台访问器（vault 各平台资产名不同，可含 {version} 占位以正则转义替换；
+    // zig 为 target 键形如 ^x86_64-windows$，不占位）
+    let raw_pattern = tool
         .cdn_asset_pattern()
-        .ok_or_else(|| format!("{name} 缺少 cdn_asset_pattern"))?
-        .replace("{version}", &regex::escape(&real_ver));
-    let re = Regex::new(&pattern).map_err(|e| format!("{name} cdn_asset_pattern 非法: {e}"))?;
+        .ok_or_else(|| format!("{name} 缺少 cdn_asset_pattern"))?;
 
-    let builds = info
-        .get("builds")
-        .and_then(Value::as_array)
-        .ok_or_else(|| format!("index.json {real_ver} 无 builds 字段"))?;
-    let build = builds
+    // 条目双形态：builds 数组（HashiCorp）缺省时按 per-target 对象（ziglang）
+    if let Some(builds) = info.get("builds").and_then(Value::as_array) {
+        let pattern = raw_pattern.replace("{version}", &regex::escape(&real_ver));
+        let re = Regex::new(&pattern).map_err(|e| format!("{name} cdn_asset_pattern 非法: {e}"))?;
+        let build = builds
+            .iter()
+            .find(|b| {
+                b.get("filename")
+                    .and_then(Value::as_str)
+                    .map(|f| re.is_match(f))
+                    .unwrap_or(false)
+            })
+            .ok_or_else(|| {
+                format!("{name} {real_ver} 在 index.json 中未找到匹配构建: {pattern}")
+            })?;
+        let filename = build
+            .get("filename")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("{name} 构建缺少 filename"))?
+            .to_string();
+        let url = build
+            .get("url")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("{name} 构建缺少 url"))?
+            .to_string();
+        // SHA256SUMS 清单地址：构建 URL 中文件名替换为 shasums 字段值
+        let shasums_url = info
+            .get("shasums")
+            .and_then(Value::as_str)
+            .map(|s| url.replace(&filename, s));
+        return Ok(Resolution {
+            tool: name.to_string(),
+            tag: real_ver.clone(),
+            version: real_ver,
+            asset_name: filename,
+            asset_size: 0,
+            asset_url: url,
+            shasums_url,
+            official_sha256: None,
+        });
+    }
+
+    // ziglang 形态：pattern 匹配 target 键；tarball 即 URL、shasum 即官方直值锚、size 可选
+    let re = Regex::new(raw_pattern).map_err(|e| format!("{name} cdn_asset_pattern 非法: {e}"))?;
+    let targets = info
+        .as_object()
+        .ok_or_else(|| format!("index.json {real_ver} 版本条目非对象: {index_url}"))?;
+    let (target, entry) = targets
         .iter()
-        .find(|b| {
-            b.get("filename")
-                .and_then(Value::as_str)
-                .map(|f| re.is_match(f))
-                .unwrap_or(false)
-        })
-        .ok_or_else(|| format!("{name} {real_ver} 在 index.json 中未找到匹配构建: {pattern}"))?;
-
-    let filename = build
-        .get("filename")
+        .find(|(k, _)| re.is_match(k))
+        .ok_or_else(|| {
+            format!("{name} {real_ver} 在 index.json 中未找到匹配 target: {raw_pattern}")
+        })?;
+    let url = entry
+        .get("tarball")
         .and_then(Value::as_str)
-        .ok_or_else(|| format!("{name} 构建缺少 filename"))?
+        .ok_or_else(|| format!("{name} target {target} 缺少 tarball"))?
         .to_string();
-    let url = build
-        .get("url")
+    let sha = entry
+        .get("shasum")
         .and_then(Value::as_str)
-        .ok_or_else(|| format!("{name} 构建缺少 url"))?
+        .map(str::to_uppercase)
+        .filter(|s| s.len() == 64 && s.chars().all(|c| c.is_ascii_hexdigit()))
+        .ok_or_else(|| format!("{name} target {target} 缺少有效 shasum（官方直值锚红线）"))?;
+    let asset_name = url
+        .rsplit('/')
+        .next()
+        .ok_or_else(|| format!("{name} tarball 无法取资产名: {url}"))?
         .to_string();
-
-    // SHA256SUMS 清单地址：构建 URL 中文件名替换为 shasums 字段值
-    let shasums_url = info
-        .get("shasums")
-        .and_then(Value::as_str)
-        .map(|s| url.replace(&filename, s));
-
+    let size = entry.get("size").and_then(Value::as_u64).unwrap_or(0);
     Ok(Resolution {
         tool: name.to_string(),
         tag: real_ver.clone(),
         version: real_ver,
-        asset_name: filename,
-        asset_size: 0,
+        asset_name,
+        asset_size: size,
         asset_url: url,
-        shasums_url,
+        shasums_url: None,
+        official_sha256: Some(sha),
     })
 }
 
@@ -225,6 +276,7 @@ fn resolve_cdn_url(name: &str, tool: &Tool, opts: &ResolveOptions) -> Result<Res
         asset_size: 0,
         asset_url: url,
         shasums_url: None,
+        official_sha256: None,
     })
 }
 
@@ -265,7 +317,9 @@ fn resolve_github(name: &str, tool: &Tool, opts: &ResolveOptions) -> Result<Reso
         let (tag, ver, asset) = (tool.pin_tag()?, tool.pin_version()?, tool.pin_asset()?);
         let dl = crate::download::mirror_url(name, ver, asset);
         if forced_msg {
-            eprintln!("[INFO] ARK_MIRROR=1 镜像优先，跳过 GitHub API；{name} pin 锚在，镜像直装: {dl}");
+            eprintln!(
+                "[INFO] ARK_MIRROR=1 镜像优先，跳过 GitHub API；{name} pin 锚在，镜像直装: {dl}"
+            );
         } else {
             eprintln!("[WARN] GitHub API 失败（{api_err}），pin 锚在，回落镜像直装: {dl}");
         }
@@ -277,6 +331,7 @@ fn resolve_github(name: &str, tool: &Tool, opts: &ResolveOptions) -> Result<Reso
             asset_size: 0,
             asset_url: dl,
             shasums_url: None,
+            official_sha256: None,
         })
     };
     if pin_driven && forced {
@@ -354,6 +409,7 @@ fn resolve_github(name: &str, tool: &Tool, opts: &ResolveOptions) -> Result<Reso
         asset_size,
         asset_url,
         shasums_url: None,
+        official_sha256: None,
     })
 }
 
@@ -615,5 +671,18 @@ mod tests {
             "URL 不应含旧 pin: {}",
             res.asset_url
         );
+    }
+    /// D43：ziglang index 形态的 latest 选取——`master` 键滤除、semver 最大（0.16 压过 0.9，字典序反例）。
+    #[test]
+    fn index_latest选取_滤master取semver最大() {
+        let keys: Vec<String> = vec![
+            "master".into(),
+            "0.9.0".into(),
+            "0.16.0".into(),
+            "0.16.0+ent".into(),
+            "0.10.0".into(),
+        ];
+        assert_eq!(index_pick_latest(keys.iter()), Some("0.16.0".to_string()));
+        assert_eq!(index_pick_latest(["master".to_string()].iter()), None);
     }
 }

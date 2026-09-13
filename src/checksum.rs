@@ -72,6 +72,10 @@ pub fn expected_sha256(
             }
         }
     }
+    // D43：官方 sha 直值锚（ziglang index per-target shasum）优先于清单与 digest 通道
+    if let Some(sha) = &res.official_sha256 {
+        return Ok(Some(sha.to_uppercase()));
+    }
     official_sha256(tool, res, env_root)
 }
 
@@ -194,6 +198,7 @@ mod tests {
             asset_size: 0,
             asset_url: "https://example.invalid/demo.zip".to_string(),
             shasums_url: None,
+            official_sha256: None,
         };
         let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
         let got = expected_sha256(&tool, &res, dir.path())?;
@@ -224,6 +229,7 @@ mod tests {
             asset_size: 0,
             asset_url: "https://example.invalid/demo.zip".to_string(),
             shasums_url: None,
+            official_sha256: None,
         };
         let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
         assert_eq!(
@@ -245,6 +251,7 @@ mod tests {
             asset_size: 0,
             asset_url: "https://example.invalid/demo.zip".to_string(),
             shasums_url: None,
+            official_sha256: None,
         };
         let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
         assert_eq!(expected_sha256(&tool, &res, dir.path())?, None);
