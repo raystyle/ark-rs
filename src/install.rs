@@ -94,6 +94,11 @@ fn install_dir(
         return Ok(Some(dir.to_path_buf()));
     }
     let dir = def.dir().ok_or_else(|| "工具缺少 dir 字段".to_string())?;
+    // {version} 占位仅 bin/exe 支持（对线 Z2）：dir 写占位会静默落字面 {version} 目录
+    // 并与 exe 布局错位，显式拒绝
+    if dir.contains("{version}") {
+        return Err("dir 字段不支持 {version} 占位（仅 bin/exe 支持）".to_string());
+    }
     Ok(Some(crate::platform::join_if_relative(
         env_root,
         crate::platform::expand_install_path(dir),

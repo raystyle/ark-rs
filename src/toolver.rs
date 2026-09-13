@@ -495,17 +495,25 @@ mod tests {
     /// D43：版本目录占位 glob——取 semver 最大在位版本（0.16.0 压过 0.9.0，字典序反例）；
     /// 定版形态直替换；无在位时 0.0.0 填充（探测 None=未装）。
     #[test]
-    #[cfg(windows)]
     fn 版本目录占位_glob取semver最大与定版替换() {
         let dir = tempfile::tempdir().expect("临时目录");
         let zig_root = dir.path().join("zig");
         for v in ["0.9.0", "0.16.0"] {
             let bin = zig_root.join(format!("zig-x86_64-windows-{v}"));
             std::fs::create_dir_all(&bin).expect("建版本目录");
-            std::fs::write(bin.join("zig.exe"), b"fake").expect("写 exe");
+            std::fs::write(
+                bin.join(format!("zig{}", std::env::consts::EXE_SUFFIX)),
+                b"fake",
+            )
+            .expect("写 exe");
         }
+        let sep = if cfg!(windows) { "\\" } else { "/" };
+        let layout = format!(
+            "zig{sep}zig-x86_64-windows-{{version}}{sep}zig{}",
+            std::env::consts::EXE_SUFFIX
+        );
         let tool = Tool {
-            exe: Some(r"zig\zig-x86_64-windows-{version}\zig.exe".to_string()),
+            exe: Some(layout),
             ..Default::default()
         };
         let env_root = dir.path();

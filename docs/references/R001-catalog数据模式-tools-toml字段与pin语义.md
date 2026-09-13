@@ -69,6 +69,7 @@
 > 字段集与 Linux 族同名对称（`mac_*` 前缀，含 `mac_cdn_url`/`mac_cdn_asset_pattern`/`mac_extra_bins`）；语义同上表对应项。
 > exe 双语义（`toolver::exe_path`）：有平台专属 exe（`mac_exe`/`linux_exe`）时 exe 相对 install_dir，
 > 回退通用 `exe` 时为 Windows 名录风格：路径自带 dir 段、相对 EnvRoot 直接拼。
+> `bin`/`exe` 支持 `{version}` 占位（D43 zig 版本目录布局）：探测 glob 取 semver 最大在位版本、装后验证与 PATH 注册按解析版本定版；`dir` 不支持占位（引擎显式拒绝）；分隔符双写法（反斜杠与正斜杠）均接受。
 
 ### pin 字段
 

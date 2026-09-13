@@ -684,7 +684,9 @@ impl Outcome {
 
 /// 用户数据副本路径：`<metadata>\catalog\tools.toml`（self-deploy 同步位，运行态权威的落点）。
 pub fn user_data_catalog_path() -> PathBuf {
-    crate::platform::metadata_dir().join("catalog").join("tools.toml")
+    crate::platform::metadata_dir()
+        .join("catalog")
+        .join("tools.toml")
 }
 
 /// 检查标记路径：与目标同目录的 `.last-sync`（记上次检查时刻与锚，不碰 catalog 文件 mtime）。
@@ -771,10 +773,8 @@ pub fn verify_with_embedded_keys(data: &[u8], sig_text: &str) -> Result<(), Stri
 /// 校验磁盘清单与其分离签名（`<清单>.minisig`）。
 pub fn check_signature(catalog: &Path) -> SignatureState {
     let sig_path = signature_path(catalog);
-    let (Ok(data), Ok(sig_text)) = (
-        std::fs::read(catalog),
-        std::fs::read_to_string(&sig_path),
-    ) else {
+    let (Ok(data), Ok(sig_text)) = (std::fs::read(catalog), std::fs::read_to_string(&sig_path))
+    else {
         return SignatureState::Missing;
     };
     match verify_with_embedded_keys(&data, &sig_text) {
@@ -887,12 +887,16 @@ fn now_secs() -> u64 {
 
 /// 文件 sha（大写）；不存在或读失败为 None。
 fn file_sha(path: &Path) -> Option<String> {
-    crate::download::sha256_file(path).ok().map(|s| s.to_uppercase())
+    crate::download::sha256_file(path)
+        .ok()
+        .map(|s| s.to_uppercase())
 }
 
 fn read_marker(target: &Path) -> Option<(u64, String)> {
     let path = marker_path(target)?;
-    std::fs::read_to_string(path).ok().and_then(|t| parse_marker(&t))
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|t| parse_marker(&t))
 }
 
 fn write_marker(target: &Path, at: u64, sha: &str) {
@@ -993,7 +997,10 @@ fn seen_seq_floor(target: &Path) -> u64 {
     let counterpart = target
         .file_name()
         .and_then(|_| crate::platform::legacy_metadata_dir())
-        .map(|old| old.join("catalog").join(target.file_name().unwrap_or_default()));
+        .map(|old| {
+            old.join("catalog")
+                .join(target.file_name().unwrap_or_default())
+        });
     seen_seq_floor_in(target, counterpart.as_deref())
 }
 
@@ -1053,13 +1060,12 @@ pub fn fetch_with_anchor(env_root: &Path, sha: &str) -> Result<CloudCatalog, Str
 }
 
 /// 单键拉取（三重验证：sha、解析、验签）。
-fn fetch_with_anchor_keyed(
-    env_root: &Path,
-    key: &str,
-    sha: &str,
-) -> Result<CloudCatalog, String> {
-    let path =
-        crate::download::download_fresh(env_root, "cloud-tools.toml", &cloud_catalog_url(key, sha))?;
+fn fetch_with_anchor_keyed(env_root: &Path, key: &str, sha: &str) -> Result<CloudCatalog, String> {
+    let path = crate::download::download_fresh(
+        env_root,
+        "cloud-tools.toml",
+        &cloud_catalog_url(key, sha),
+    )?;
     let got = crate::download::sha256_file(&path)?;
     if !got.eq_ignore_ascii_case(sha) {
         return Err(format!("云端清单锚不符: 边车 {sha} 实拉 {got}"));
@@ -1173,11 +1179,16 @@ fn sync_manifest_if_present(env_root: &Path, tools_target: &Path) -> Result<(), 
     if !got.eq_ignore_ascii_case(&sha) {
         return Err(format!("云端 manifest 锚不符: 边车 {sha} 实拉 {got}"));
     }
-    crate::manifest::parse(&std::fs::read_to_string(&path).map_err(|e| format!("读 manifest 失败: {e}"))?)?;
+    crate::manifest::parse(
+        &std::fs::read_to_string(&path).map_err(|e| format!("读 manifest 失败: {e}"))?,
+    )?;
     let sig = download_fresh(
         env_root,
         "cloud-manifest.toml.minisig",
-        &with_query(&cloud_manifest_signature_url(mkey), &format!("t={}", now_secs())),
+        &with_query(
+            &cloud_manifest_signature_url(mkey),
+            &format!("t={}", now_secs()),
+        ),
     )?;
     let sig_text =
         std::fs::read_to_string(&sig).map_err(|e| format!("读 manifest 签名失败: {e}"))?;
@@ -1228,7 +1239,10 @@ pub fn auto_refresh(env_root: &Path) -> Result<Outcome, String> {
             return Ok(Outcome::Skipped("unreachable"));
         }
     };
-    if local_sha.as_deref().is_some_and(|l| l.eq_ignore_ascii_case(&cloud)) {
+    if local_sha
+        .as_deref()
+        .is_some_and(|l| l.eq_ignore_ascii_case(&cloud))
+    {
         write_marker(&target, now, &cloud);
         // D40：在位件即已见基线，首次自动刷新即补记（否则记录停在 0，回滚会被放行）
         record_seen_seq_from_local(&target);
@@ -1259,10 +1273,16 @@ fn manifest_stale(tools_target: &Path, now: u64, ttl: u64) -> bool {
     if ttl == 0 {
         return false;
     }
-    let Some(dir) = tools_target.parent() else { return false };
+    let Some(dir) = tools_target.parent() else {
+        return false;
+    };
     let path = dir.join("manifest.toml");
-    let Ok(meta) = std::fs::metadata(&path) else { return true };
-    let Ok(mt) = meta.modified() else { return false };
+    let Ok(meta) = std::fs::metadata(&path) else {
+        return true;
+    };
+    let Ok(mt) = meta.modified() else {
+        return false;
+    };
     let age = mt
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -1277,7 +1297,10 @@ pub fn auto_refresh_if_user_data(env_root: &Path, resolved: &Path) {
     }
     if let Ok(Outcome::Updated { sha }) = auto_refresh(env_root) {
         let short = &sha[..sha.len().min(8)];
-        eprintln!("[OK] catalog 已刷新: {}（云端 {short}）", resolved.display());
+        eprintln!(
+            "[OK] catalog 已刷新: {}（云端 {short}）",
+            resolved.display()
+        );
     }
 }
 
@@ -1615,7 +1638,7 @@ mod tests {
             asset_size: 0,
             asset_url: "https://example.invalid/age.zip".to_string(),
             shasums_url: None,
-        official_sha256: None,
+            official_sha256: None,
         };
         let changed = write_pin(&path, "age", &res)?;
         assert!(changed, "1.3.1 到 1.4.0 应判定为版本变更");
@@ -1654,7 +1677,7 @@ mod tests {
             asset_size: 0,
             asset_url: "https://example.invalid/age.zip".to_string(),
             shasums_url: None,
-        official_sha256: None,
+            official_sha256: None,
         };
         let changed = write_pin(&path, "age", &res)?;
         assert!(!changed, "同版本 re-pin 不算变更");
@@ -1681,7 +1704,7 @@ mod tests {
             asset_size: 0,
             asset_url: "https://example.invalid/age.zip".to_string(),
             shasums_url: None,
-        official_sha256: None,
+            official_sha256: None,
         };
         write_pin(&path, "age", &res)?;
 
@@ -1708,7 +1731,7 @@ mod tests {
             asset_size: 0,
             asset_url: "https://example.invalid/demo.zip".to_string(),
             shasums_url: None,
-        official_sha256: None,
+            official_sha256: None,
         };
         write_pin(&path, "demo", &res)?;
 
@@ -1741,8 +1764,16 @@ mod refresh_tests {
         assert_eq!(resolve_ttl(None, None), DEFAULT_TTL_SECS);
         assert_eq!(resolve_ttl(Some("0"), None), 0, "0 表示关闭自动刷新");
         assert_eq!(resolve_ttl(Some("600"), None), 600);
-        assert_eq!(resolve_ttl(Some("abc"), None), DEFAULT_TTL_SECS, "非法值回落默认");
-        assert_eq!(resolve_ttl(Some("600"), Some("1")), 0, "OME_OFFLINE=1 优先关闭");
+        assert_eq!(
+            resolve_ttl(Some("abc"), None),
+            DEFAULT_TTL_SECS,
+            "非法值回落默认"
+        );
+        assert_eq!(
+            resolve_ttl(Some("600"), Some("1")),
+            0,
+            "OME_OFFLINE=1 优先关闭"
+        );
         assert_eq!(resolve_ttl(None, Some("0")), DEFAULT_TTL_SECS, "离线只认 1");
     }
 
@@ -1793,7 +1824,10 @@ mod refresh_tests {
             "userdata"
         );
         assert_eq!(classify_origin(&cwd, &user_data, Some(&cwd), None), "repo");
-        assert_eq!(classify_origin(&env, &user_data, Some(&cwd), Some(&env)), "env");
+        assert_eq!(
+            classify_origin(&env, &user_data, Some(&cwd), Some(&env)),
+            "env"
+        );
         assert_eq!(
             classify_origin(Path::new("/x/tools.toml"), &user_data, None, None),
             "other"
@@ -1858,7 +1892,11 @@ mod refresh_tests {
         // D41 C：新旧目录并行期地板取 max（旧二进制仍在旧位写水位）；自指防御；无旧位取自身
         let dir = tempfile::tempdir().expect("临时目录");
         let new_cat = dir.path().join("ark").join("catalog").join("tools.toml");
-        let old_cat = dir.path().join("ohmyenv").join("catalog").join("tools.toml");
+        let old_cat = dir
+            .path()
+            .join("ohmyenv")
+            .join("catalog")
+            .join("tools.toml");
         std::fs::create_dir_all(new_cat.parent().expect("新目录")).expect("建新目录");
         std::fs::create_dir_all(old_cat.parent().expect("旧目录")).expect("建旧目录");
         std::fs::write(&new_cat, "x").expect("写新位");
@@ -1871,7 +1909,11 @@ mod refresh_tests {
             "旧水位高取 max（防并行期放行窗口）"
         );
         write_seen_seq(&new_cat, 9);
-        assert_eq!(seen_seq_floor_in(&new_cat, Some(&old_cat)), 9, "新水位高取自身");
+        assert_eq!(
+            seen_seq_floor_in(&new_cat, Some(&old_cat)),
+            9,
+            "新水位高取自身"
+        );
         assert_eq!(seen_seq_floor_in(&old_cat, Some(&old_cat)), 7, "自指不叠加");
         assert_eq!(seen_seq_floor_in(&new_cat, None), 9, "无旧位取自身");
     }
@@ -1968,7 +2010,11 @@ FeN3CEmfyojZlc/nYDHD/JGL8Z+H9HoUj3KAq2lbtYuxMBqsTUiuenVbaqyyFM4L433njWZO45arpsiA
             signature_path(&cat).file_name().unwrap().to_string_lossy(),
             "tools.toml.minisig"
         );
-        assert_eq!(check_signature(&cat), SignatureState::Missing, "无签名件即 missing");
+        assert_eq!(
+            check_signature(&cat),
+            SignatureState::Missing,
+            "无签名件即 missing"
+        );
         assert_eq!(SignatureState::Missing.label(), "missing");
         assert_eq!(SignatureState::Valid.label(), "valid");
     }
@@ -1983,7 +2029,10 @@ FeN3CEmfyojZlc/nYDHD/JGL8Z+H9HoUj3KAq2lbtYuxMBqsTUiuenVbaqyyFM4L433njWZO45arpsiA
             tmp_path(&sig),
             "清单与签名件的临时名必须不同，避免并发刷新时两种内容互串"
         );
-        assert_eq!(tmp_path(&cat).file_name().unwrap().to_string_lossy(), "tools.toml.tmp");
+        assert_eq!(
+            tmp_path(&cat).file_name().unwrap().to_string_lossy(),
+            "tools.toml.tmp"
+        );
         assert_eq!(
             tmp_path(&sig).file_name().unwrap().to_string_lossy(),
             "tools.toml.minisig.tmp"
