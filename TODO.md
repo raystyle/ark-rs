@@ -10,7 +10,7 @@ D42 运行时源中国镜像统一落 manifest（2026-09-13 立项）：manifest
 
 | 任务项 | 进度 | 说明 | 日期 |
 | --- | --- | --- | --- |
-| D42：运行时源中国镜像统一落 manifest | 进行中 | 裁定与全集：ohmypwsh set-mirror.ps1/P0017/P0019 遗产 + wsl-verify A13 四件断言（npmrc npmmirror、cargo rsproxy≥3、uv.toml tsinghua≥1、bashrc 镜像 env≥3 行）已核对；落码面：manifest mirror 节 + platform remove_user_env_var + rustup POSIX + verify/heal/lint + R016/README/CHANGELOG/INDEX/diary；对线走右侧 codex | 2026-09-13 |
+| D42：运行时源中国镜像统一落 manifest | 进行中 | **主体已交付**（`d0e6104` 镜像节与 rust POSIX、对线三轮 CONFIRM 修复 `2723e4c`/`3180c99`/`e7227f4`，Windows 真机全链绿，版本 1.1.0 未推远端未打 tag；选型追记 S008 `083dc49`）。余验收面：omc 数据三件就绪（mirror 节、rust POSIX 字段、镜像桶 rustup-init 资产，herdr 已知会）后 WSL 跑 `ark install fnm uv bun rust` 验 A13 四件，绿后对岸撤 bootstrap 兜底；A13 绿即收口 PRD D42 并封版 1.1.0 | 2026-09-13 |
 | D41：更名 Ark 迁移（运营期） | 已完成 | 四阶段全收官：A/B/C 逐批对线推 main CI 绿；D 文档批加 **v1.0.0 已发版**（tag CI 绿、release 六资产双名同 digest、双 stable 段 200、部署位验收全绿含 replace_exe 首落修复 `ef44915`）；omc 三件批切回执已至（tools.ark 入册 seq 10、deploy 全切 ark、lan-linux 实证通）。余过渡期运营：oma 回执待收、存量机水位观测、停 ome/ 面（段与资产名与 ome-self）待水位清零、oma/omc 存量机升级跟进 | 2026-09-12 |
 | D35/D36：R015 标准定档与管辖边界 | 已完成 | R015 成文（发布/更新/播种三流程唯一权威，互指 R001/R014/S006/R004）；管辖两域分治：ome 自理代码功能发版自更新，清单与资源运营托管 omc（承接形态由 omc 定，本仓流水不撤）；PRD D35/D36、AGENTS 方案索引与边界、R014 六.7、INDEX 挂链 | 2026-09-10 |
 | 签名播种流水 B 承接双轨切换（omc 回执选 B） | 已完成 | 全链闭环：工具公钥复制（0501e35）、catalog-seed 流水建、用户灌三枚 Secret（零泄露）、首跑 success（34483609407）云端三件套新签重灌；本仓独立验签 signature=valid 后撤退完成：Secret 删、seed-mirror 签名步撤、seed.py 摘 catalog 本体上传（防竞态），seed-mirror 只留软件资产域；路线 A 与 catalog_lint 发布门不移交 | 2026-09-10 |

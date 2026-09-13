@@ -107,6 +107,7 @@
 > 当前目标的进程：只记录当前这一个目标的进行状态。
 
 - 当前目标：D42 运行时源中国镜像统一落 manifest（2026-09-13 立项）。manifest DSL 扩 mirror 节（fnm/uv/bun 数据面）加 rust 接管扩 POSIX（rsproxy 全量）；验收面 wsl 总台 verify A13 四件断言。计划见 `PLAN.md`。
+- 锚点 2026-09-13：主体交付（`d0e6104` 加对线三轮 CONFIRM 修复，Windows 真机全链绿，S008 选型追记）；余 WSL A13 验收（前置 omc 数据三件，herdr 已知会对岸）。
 
 ## 历史
 
