@@ -64,12 +64,15 @@ ark catalog sync   # 立即从云端刷新（默认 TTL 24h 自动刷新；ARK_C
 
 ## 供给清单
 
-47 个工具，含 agent 四家二进制（PATH 在位即跳过，存量原地纳管）：
+50 个工具（清单权威在云端 seed 与镜像三件套），agent 四家二进制 PATH 在位即跳过、存量原地纳管：
 
 | 类 | 工具 |
 | --- | --- |
 | 智能体（4） | claude、codex、grok、kimi |
-| 操作编排（2） | ome（自管条目）、herdr |
+| 自管与过渡（2） | ark（自管主条目，原 ome）、ome（更名过渡条目，存量端水位清零后退役） |
+| 操作编排（1） | herdr（多 agent 并行会话宿主） |
+| agent 配置与诊断（1） | hst（原 oma；Hooks、Statusline、Trace 与只读观测） |
+| 云端控制台（1） | omc（云与内网控制台 CLI，npm-tgz 通道） |
 | 运行时（7） | pwsh、wsl、docker、dotnet、bun、python、nushell |
 | 运行时管理器（2） | fnm（node）、uv（python） |
 | 编译器（4） | vsbuild（含 C 编译器）、rust、go、zig |
