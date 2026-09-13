@@ -253,7 +253,10 @@ fn install_posix(def: &Tool, env_root: &Path, configure: bool) -> Result<Install
     }
     std::env::set_var("RUSTUP_HOME", &rustup_home);
     std::env::set_var("CARGO_HOME", &cargo_home);
-    for (k, v) in [("RUSTUP_DIST_SERVER", DIST_SERVER), ("RUSTUP_UPDATE_ROOT", UPDATE_ROOT)] {
+    for (k, v) in [
+        ("RUSTUP_DIST_SERVER", DIST_SERVER),
+        ("RUSTUP_UPDATE_ROOT", UPDATE_ROOT),
+    ] {
         std::env::set_var(k, v);
         if configure {
             let cur = platform::get_user_env_var(k)?;
@@ -399,14 +402,26 @@ mod tests {
             // 默认位断言须清进程变量（本用例独占这两个变量，无并行竞用）
             std::env::remove_var("RUSTUP_HOME");
             std::env::remove_var("CARGO_HOME");
-            assert!(rustup_home(root).ends_with(".rustup"), "POSIX 缺省应为 ~/.rustup");
-            assert!(cargo_home(root).ends_with(".cargo"), "POSIX 缺省应为 ~/.cargo");
+            assert!(
+                rustup_home(root).ends_with(".rustup"),
+                "POSIX 缺省应为 ~/.rustup"
+            );
+            assert!(
+                cargo_home(root).ends_with(".cargo"),
+                "POSIX 缺省应为 ~/.cargo"
+            );
             assert!(rustc_exe(root).ends_with("rustc"), "POSIX 无 .exe 后缀");
             // 尊重既有（对线 R3）：进程变量优先于默认位
             std::env::set_var("RUSTUP_HOME", "/custom/rustup");
             std::env::set_var("CARGO_HOME", "/custom/cargo");
-            assert!(rustup_home(root).starts_with("/custom/rustup"), "既有 RUSTUP_HOME 应被尊重");
-            assert!(cargo_home(root).starts_with("/custom/cargo"), "既有 CARGO_HOME 应被尊重");
+            assert!(
+                rustup_home(root).starts_with("/custom/rustup"),
+                "既有 RUSTUP_HOME 应被尊重"
+            );
+            assert!(
+                cargo_home(root).starts_with("/custom/cargo"),
+                "既有 CARGO_HOME 应被尊重"
+            );
             std::env::remove_var("RUSTUP_HOME");
             std::env::remove_var("CARGO_HOME");
         }
