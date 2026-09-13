@@ -1115,6 +1115,13 @@ fn place(src: &Path, target: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// current 判定（纯函数，D45）：sha 同锚**且**云端 seq 不高于已见才 current。
+/// 锚探测（sha 边车）与 toml 本体拉取是两次网络交互，CF 残影下可能边车旧本体新：
+/// 此时 seq 高于已见，按 current 走会丢弃已拉到的新档（本轮 zig 数据复验实锤的缺口）。
+fn is_current(local_sha: Option<&str>, cloud_sha: &str, cloud_seq: u64, seen: u64) -> bool {
+    local_sha.is_some_and(|l| l.eq_ignore_ascii_case(cloud_sha)) && cloud_seq <= seen
+}
+
 /// 子功能 sync 的核心：刷新到指定目标（命令面与自动路径共用；target 独立解析，便于沙盒测试）。
 pub fn sync_to(env_root: &Path, target: &Path, force: bool, ttl: u64) -> Result<Outcome, String> {
     if ttl == 0 && !force {
@@ -1137,9 +1144,9 @@ pub fn sync_to(env_root: &Path, target: &Path, force: bool, ttl: u64) -> Result<
     // 回滚重放门（D40 加 D41 C 地板）：先过 seq 再谈内容（防重放旧签名件与镜像桶回滚；
     // 地板含旧 ohmyenv 目录水位，防旧二进制并行期窗口）
     seq_gate(cloud.seq, seen_seq_floor(target), "tools.toml")?;
-    let in_sync = local_sha
-        .as_deref()
-        .is_some_and(|l| l.eq_ignore_ascii_case(&cloud.sha));
+    // CF 边缘残影第二道（D45，对岸三犯根治的端上消费面）：锚探测与 toml 拉取异源
+    // （sha 边车旧、本体新时 sha 说 current），已拉到手的 seq 高于已见不得按 current 丢弃新档
+    let in_sync = is_current(local_sha.as_deref(), &cloud.sha, cloud.seq, seen_seq_floor(target));
     if in_sync {
         // 内容同锚：补签名件（本地可能缺，比如首次带签名上线或本地被改写后签名被封存）
         place(&cloud.sig_path, &signature_path(target))?;
@@ -1424,6 +1431,21 @@ mod tests {
 
     fn fixture_catalog() -> Catalog {
         Catalog::parse(FIXTURE, PathBuf::from("tests/fixtures/tools.toml")).expect("夹具应能解析")
+    }
+
+    /// D45：current 判定的 seq 消费——同锚且 seq 不高于已见才 current（CF 残影下
+    /// 边车旧本体新时 seq 高于已见，不得丢弃新档）。
+    #[test]
+    fn current判定_sha同锚还要seq不高于已见() {
+        let sha = "AA";
+        assert!(is_current(Some("aa"), sha, 5, 5), "同锚同 seq：current");
+        assert!(is_current(Some("aa"), sha, 4, 5), "同锚 seq 低（回放已被门拦，双保险）：current");
+        assert!(
+            !is_current(Some("aa"), sha, 6, 5),
+            "同锚但 seq 高：边车旧本体新，不得按 current 丢新档"
+        );
+        assert!(!is_current(Some("BB"), sha, 5, 5), "异锚：不 current");
+        assert!(!is_current(None, sha, 5, 5), "本地无件：不 current");
     }
 
     #[test]

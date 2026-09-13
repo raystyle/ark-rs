@@ -2,6 +2,12 @@
 
 > 版本里程碑。SemVer `vMAJOR.MINOR.PATCH`。
 
+## [1.2.1] - 2026-09-13
+
+patch：D45 sync 的 tools seq 消费收口（对岸 CF 三犯根治的端上认领面）。
+
+- catalog sync：current 判定从「sha 同锚」收紧为「sha 同锚**且**云端 seq 不高于已见」（`is_current` 纯函数入测）——锚探测（sha 边车）与 toml 本体拉取异源，CF 残影下边车旧本体新时原判定会丢弃已拉到的新档（zig 数据复验实锤缺口）；对岸基建侧已 `no-cache` 全覆盖重传，本修为端上第二道保险。
+
 ## [1.2.0] - 2026-09-13
 
 minor：**D43 zig 版本去锁**（用户裁定「不再锁定 zig 版本」）。
