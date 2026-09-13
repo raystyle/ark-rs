@@ -106,8 +106,7 @@
 
 > 当前目标的进程：只记录当前这一个目标的进行状态。
 
-- 当前目标：D42 运行时源中国镜像统一落 manifest（2026-09-13 立项）。manifest DSL 扩 mirror 节（fnm/uv/bun 数据面）加 rust 接管扩 POSIX（rsproxy 全量）；验收面 wsl 总台 verify A13 四件断言。计划见 `PLAN.md`。
-- 锚点 2026-09-13：主体交付（`d0e6104` 加对线三轮 CONFIRM 修复，Windows 真机全链绿，S008 选型追记）；余 WSL A13 验收（前置 omc 数据三件，herdr 已知会对岸）。
+- 当前目标：无（D42 已达成入历史；下一目标待立项）。
 
 ## 历史
 
@@ -115,6 +114,7 @@
 
 | 日期 | 目标 | 结果 |
 | --- | --- | --- |
+| 2026-09-13 | D42 运行时源中国镜像统一落 manifest | 达成：manifest mirror 节七键 DSL 加 rust POSIX 接管（对线三轮 CONFIRM）；v1.1.0 发版（CI 三平台绿、WSL self update 到位）；omc 四件数据同批就绪；WSL 验收 A13 六件 PASS（对岸撤 bootstrap 兜底后仍绿）；遗留（镜像桶 bun 资产、总台环境红项）移交对岸已回执 |
 | 2026-09-12 | D41 更名 Ark | 达成：四阶段 A/B/C 对线逐批推 main；v1.0.0 发版（tag CI 绿、release 六资产双名同 digest、双 stable 段 200、部署位验收全绿）；omc 三件批切回执（tools.ark seq 10、deploy 全切 ark、lan-linux 实证通）；余过渡期运营观测（ome/ 面停段待存量机水位清零） |
 | 2026-09-10 | D34 云端清单防 MITM 非对称校验 | 达成：minisign 签名加内嵌公钥（本地与云端一起校验）；云端签名件首发、本机 sync 验签通过、篡改阻断与自愈双实证；单测与门禁全绿 |
 | 2026-09-10 | D33 软件清单云端化与实时刷新 | 达成：主功能 catalog 下的 status 与 sync 两子功能加 TTL 自动刷新；真机旧二进制读到云端新增软件；cargo test 与四件套全绿 |
