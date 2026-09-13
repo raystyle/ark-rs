@@ -150,3 +150,56 @@ asset = "jq-windows-amd64.exe"
         .stdout(contains("action=skipped"))
         .stdout(contains(format!("version={ver}")));
 }
+
+#[test]
+#[cfg(windows)]
+fn install_幂等分支mirror节点接线与测试闸门() {
+    // D42：幂等跳过分支同样落 mirror（存量端升级即得的接线面）。
+    // 沙盒闸门开：断言 apply_manifest_primitives 真正调到 apply_mirror（闸门行可见）
+    // 且不写任何真实用户配置（npmrc/env 面全被闸门拦下）。
+    let real_jq = Path::new(r"D:\ohmyenv\jq\jq.exe");
+    if !real_jq.exists() {
+        eprintln!("[SKIP] 无 D:\\ohmyenv\\jq\\jq.exe 可借用，跳过 mirror 接线测试");
+        return;
+    }
+    let out = std::process::Command::new(real_jq)
+        .arg("--version")
+        .output()
+        .expect("jq --version 应可运行");
+    let ver = String::from_utf8_lossy(&out.stdout)
+        .trim()
+        .strip_prefix("jq-")
+        .expect("jq 版本行应为 jq-<ver> 格式")
+        .to_string();
+    let catalog_text = format!(
+        r#"
+[tools.jq]
+dir = "jq"
+bin = "jq"
+exe = 'jq\jq.exe'
+probe_pattern = 'jq-(\d+\.\d+\.\d+)'
+extract = "copy"
+cdn_url = "https://example.invalid/jq-windows-amd64.exe"
+tag = "v{ver}"
+version = "{ver}"
+asset = "jq-windows-amd64.exe"
+"#
+    );
+    let (_guard, catalog, env_root) = sandbox(&catalog_text);
+    let jq_dir = env_root.join("jq");
+    fs::create_dir_all(&jq_dir).expect("创建 jq 目录失败");
+    fs::copy(real_jq, jq_dir.join("jq.exe")).expect("复制假 exe 失败");
+    fs::write(
+        _guard.path().join("manifest.toml"),
+        "schema_version = 1\n[manifest.jq.mirror]\nnpm_registry = \"https://registry.npmmirror.com\"\n",
+    )
+    .expect("写沙盒 manifest 失败");
+
+    ome(&catalog, &env_root)
+        .args(["install", "jq"])
+        .assert()
+        .success()
+        .stdout(contains("action=skipped"))
+        // 接线可见：幂等分支进到 mirror 落源，被测试闸门拦下（真实 HOME 零写入）
+        .stderr(contains("跳过 jq mirror 落源（测试隔离）"));
+}

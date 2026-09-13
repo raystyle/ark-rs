@@ -407,10 +407,12 @@ fn ensure_user_bin_link(name: &str, exe: &Path) {
 #[cfg(windows)]
 fn ensure_user_bin_link(_name: &str, _exe: &Path) {}
 
-/// manifest 原语应用点（L1 env_set 与 shims、L2 post_install）：**全链唯一实现**，
+/// manifest 原语应用点（L1 env_set、mirror 与 shims、L2 post_install）：**全链唯一实现**，
 /// 主链（幂等分支与成功尾）与 uv-git/npm-tgz 早退通道共用，避免多份并行漂移。
-/// 失败语义与主链一致：env_set 与 shims 硬错（`?`，L1 写不进就是没配上），
+/// 失败语义与主链一致：env_set、mirror 与 shims 硬错（`?`，L1 写不进就是没配上），
 /// post_install 降 WARN 不拦安装收尾（D39 共识③）。
+/// mirror 在 post_install 之前落源：镜像 env 进程内即设，fnm install 等 L2 命令
+/// 立即经 npmmirror 拉 node（D42）。
 fn apply_manifest_primitives(
     ms: Option<&crate::manifest::ToolManifest>,
     name: &str,
@@ -418,6 +420,10 @@ fn apply_manifest_primitives(
 ) -> Result<(), String> {
     let Some(m) = ms else { return Ok(()) };
     ensure_user_env_overrides(ms)?;
+    if m.mirror.is_some() {
+        let home = dirs::home_dir().ok_or("无法确定用户主目录（mirror 落源）")?;
+        crate::manifest::apply_mirror(m, name, &home)?;
+    }
     if m.shims.is_some() {
         match shim_dir.filter(|d| d.is_absolute()) {
             Some(dir) => crate::manifest::apply_shims(m, dir)?,

@@ -1,12 +1,13 @@
 //! manifest.toml：安装配置部署逻辑的数据面（R016 B 层，D39 第一波引擎）。
 //!
 //! 结构：`schema_version` 加每工具一节 `[manifest.<tool>]`，含 L1 声明原语
-//! （`env_set` 用户级键值表、`shims` 别名表）与 L2 受控命令（`post_install`
-//! 分平台 argv 数组——每条是参数数组非 shell 字符串，无元字符解释）。
+//! （`env_set` 用户级键值表、`shims` 别名表、`mirror` 镜像源节 D42）与 L2 受控命令
+//! （`post_install` 分平台 argv 数组——每条是参数数组非 shell 字符串，无元字符解释）。
 //!
 //! 生命周期：与 tools.toml 同目录（catalog sync 顺带拉取三件套，同锚同签）；
 //! 文件或工具节缺失时零原语、零动作（内建双轨已于 2026-09-11 撤除，omc 数据面为唯一来源）。
 //! 高 `schema_version` 拒载并提示升级 ome（R016 前进兼容红线）。
+//! mirror 节不升 schema（serde 容忍未知字段，旧引擎静默忽略零动作，前向兼容同红线）。
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -32,8 +33,44 @@ pub struct ToolManifest {
     pub env_set: Option<HashMap<String, String>>,
     /// L1：别名表（键=别名名、值=同 bin 目录的源名；win=硬链接加 .cmd 兜底、POSIX=符号链接）。
     pub shims: Option<HashMap<String, String>>,
+    /// L1：镜像源节（D42）。值全数据面声明，落点与合并语义引擎按类型实现（见 `Mirror`）。
+    pub mirror: Option<Mirror>,
     /// L2：受控命令（分平台 argv 数组）。
     pub post_install: Option<PostInstall>,
+}
+
+/// L1 镜像源节（D42，全集对齐 ohmypwsh set-mirror.ps1 / P0017 五端统一口径）。
+/// 键全可选、按需声明；幂等：各键内容一致零重写。
+/// - `env`：用户级镜像变量（通道同 env_set：win=注册表、POSIX=profile env 块即 shell rc）；
+/// - `env_unset`：旧通道变量撤除（防旧 env 值盖过文件配置，如 UV_INDEX_URL 盖 uv.toml）；
+/// - `npm_registry`：`~/.npmrc` 行级 upsert `registry=<url>`（认证行等其他行原样保留）；
+/// - `bunfig_registry`：`~/.bunfig.toml` 整文件（含本 URL 即不重写，heal_bunfig 同语义）；
+/// - `uv_index`：uv.toml 整文件 `[[index]]` default（POSIX `~/.config/uv/`、win `%APPDATA%\uv\`）；
+/// - `pip_index`：pip.conf（POSIX `~/.config/pip/pip.conf`、win `%APPDATA%\pip\pip.ini`）；
+/// - `cargo_config`：CARGO_HOME 解析位 config.toml 整文件（rsproxy 全量形态等内容比对）。
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct Mirror {
+    pub env: Option<HashMap<String, String>>,
+    pub env_unset: Option<Vec<String>>,
+    pub npm_registry: Option<String>,
+    pub bunfig_registry: Option<String>,
+    pub uv_index: Option<String>,
+    pub pip_index: Option<String>,
+    pub cargo_config: Option<String>,
+}
+
+impl Mirror {
+    /// 全键空判定（lint：空节应省略）。
+    pub fn is_empty_conf(&self) -> bool {
+        self.env.as_ref().is_none_or(|m| m.is_empty())
+            && self.env_unset.as_ref().is_none_or(|v| v.is_empty())
+            && self.npm_registry.is_none()
+            && self.bunfig_registry.is_none()
+            && self.uv_index.is_none()
+            && self.pip_index.is_none()
+            && self.cargo_config.is_none()
+    }
 }
 
 /// L2 受控命令：每平台一组 argv 数组；`skip` 显式声明「该平台无命令」（三键齐备 lint 依据）。
@@ -156,6 +193,245 @@ pub fn apply_env_set(m: &ToolManifest) -> Result<(), String> {
         eprintln!("[OK] manifest env_set 已设: {k}={v}（新终端生效）");
     }
     Ok(())
+}
+
+// ── L1 mirror 节落源（D42）：值数据面声明，落点与合并语义引擎按类型实现 ──
+
+/// mirror 值形态校验（对线 R5，注入面）：值拒绝换行与双引号——TOML 转义可产出真实换行，
+/// 拼进 npmrc/bunfig/uv.toml/bashrc 即注入额外行（rc 注入即命令执行）；本地面
+/// （ARK_CATALOG 指目录）无签名门，写入前必须自拒。lint 同规则复用（单一权威）。
+pub fn mirror_value_sane(v: &str) -> bool {
+    !v.contains(['\n', '\r', '"'])
+}
+
+/// mirror env 键形态校验：标识符形态（防键里带 `=` 或元字符破坏 export 行）。lint 同规则复用。
+pub fn mirror_env_key_sane(k: &str) -> bool {
+    !k.is_empty()
+        && k.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// L1：镜像源节落源（幂等）。env 先行（post_install 子进程继承，FNM_NODE_DIST_MIRROR
+/// 对 fnm install 即时生效）；`env_unset` 进程面无条件先清（「只在当前 shell 导出」的旧变量
+/// 不在持久面，不清则 post_install 子进程照样继承并盖过文件配置，对线 R2）；
+/// 整面受测试隔离闸门（用户环境写入面第五面，M002 同型防漏）。
+/// 失败语义同 L1 硬错：写不进就是没配上。
+pub fn apply_mirror(m: &ToolManifest, tool: &str, home: &Path) -> Result<(), String> {
+    let Some(mir) = &m.mirror else { return Ok(()) };
+    if crate::platform::user_env_write_blocked() {
+        eprintln!("[INFO] ARK_TEST_NO_PATH_REG=1：跳过 {tool} mirror 落源（测试隔离）");
+        return Ok(());
+    }
+    // 值与键形态先全量校验（硬错）：任一键不 sane 即拒整节，不做半套落源
+    for (k, v) in mir.env.iter().flatten() {
+        if !mirror_env_key_sane(k) {
+            return Err(format!("mirror env 键形态非法: {k}"));
+        }
+        if !mirror_value_sane(v) {
+            return Err(format!("mirror env 值含换行或双引号，拒绝落源: {k}"));
+        }
+    }
+    for (what, v) in [
+        ("npm_registry", mir.npm_registry.as_deref()),
+        ("bunfig_registry", mir.bunfig_registry.as_deref()),
+        ("uv_index", mir.uv_index.as_deref()),
+        ("pip_index", mir.pip_index.as_deref()),
+    ] {
+        if v.is_some_and(|v| !mirror_value_sane(v)) {
+            return Err(format!("mirror {what} 值含换行或双引号，拒绝落源"));
+        }
+    }
+    for k in mir.env_unset.iter().flatten() {
+        if !mirror_env_key_sane(k) {
+            return Err(format!("mirror env_unset 键形态非法: {k}"));
+        }
+    }
+    for (k, v) in mir.env.iter().flatten() {
+        let cur = crate::platform::get_user_env_var(k)?;
+        if cur.as_deref() != Some(v.as_str()) {
+            crate::platform::set_user_env_var(k, v)?;
+            eprintln!("[OK] mirror env 已设: {k}={v}（新终端生效）");
+        } else {
+            eprintln!("[INFO] mirror env 已是: {k}={v}");
+        }
+    }
+    for k in mir.env_unset.iter().flatten() {
+        // 进程面无条件先清（对线 R2）：会话导出的旧变量不在持久面，但子进程会继承
+        std::env::remove_var(k);
+        if crate::platform::remove_user_env_var(k)? {
+            eprintln!("[OK] mirror 旧 env 已撤: {k}");
+        }
+    }
+    if let Some(url) = &mir.npm_registry {
+        mirror_report(ensure_npmrc(home, url), "~/.npmrc registry")?;
+    }
+    if let Some(url) = &mir.bunfig_registry {
+        mirror_report(ensure_bunfig(home, url), "~/.bunfig.toml registry")?;
+    }
+    if let Some(url) = &mir.uv_index {
+        mirror_report(ensure_uv_toml(url), "uv.toml index")?;
+    }
+    if let Some(url) = &mir.pip_index {
+        mirror_report(ensure_pip_conf(url), "pip.conf index-url")?;
+    }
+    if let Some(content) = &mir.cargo_config {
+        mirror_report(ensure_cargo_config(content), "cargo config.toml")?;
+    }
+    Ok(())
+}
+
+/// mirror 落源报告（写/已目标态/失败三态统一出口）。
+fn mirror_report(r: Result<bool, String>, what: &str) -> Result<(), String> {
+    match r {
+        Ok(true) => eprintln!("[OK] mirror 已写: {what}"),
+        Ok(false) => eprintln!("[INFO] mirror 已是目标态: {what}"),
+        Err(e) => return Err(format!("mirror 落源失败（{what}）: {e}")),
+    }
+    Ok(())
+}
+
+/// npmrc 的 registry 行 upsert（纯函数）：有 registry 行原位替换（键名大小写与空白容忍），
+/// 无则追加文末；**其余行（认证 token、scope 配置等）逐字保留**——npmrc 常载凭据，整文件重写会毁数据。
+pub fn npmrc_upsert(text: &str, url: &str) -> String {
+    let line = format!("registry={url}");
+    let is_registry = |l: &str| {
+        l.split_once('=')
+            .is_some_and(|(k, _)| k.trim().eq_ignore_ascii_case("registry"))
+    };
+    let mut out: Vec<String> = Vec::new();
+    let mut replaced = false;
+    for l in text.lines() {
+        if is_registry(l) {
+            out.push(line.clone());
+            replaced = true;
+        } else {
+            out.push(l.to_string());
+        }
+    }
+    if !replaced {
+        out.push(line);
+    }
+    let mut s = out.join("\n");
+    if !s.ends_with('\n') {
+        s.push('\n');
+    }
+    s
+}
+
+/// npm registry 落 `~/.npmrc`（UTF-8 无 BOM）。返回是否写入。
+pub fn ensure_npmrc(home: &Path, url: &str) -> Result<bool, String> {
+    let p = home.join(".npmrc");
+    let cur = std::fs::read_to_string(&p).unwrap_or_default();
+    let want = npmrc_upsert(&cur, url);
+    if want == cur {
+        return Ok(false);
+    }
+    std::fs::write(&p, want).map_err(|e| format!("写 npmrc 失败: {}: {e}", p.display()))?;
+    Ok(true)
+}
+
+/// bunfig registry 落 `~/.bunfig.toml`（整文件；含本 URL 即不重写，heal-mirror 同语义；
+/// URL 比对去尾斜杠——npmmirror 两种写法等价不应来回重写）。
+pub fn ensure_bunfig(home: &Path, url: &str) -> Result<bool, String> {
+    let p = home.join(".bunfig.toml");
+    let want = format!("[install]\nregistry = \"{url}\"\n");
+    let content = std::fs::read_to_string(&p).unwrap_or_default();
+    let marker = url.trim_end_matches('/');
+    if p.exists() && content.contains(marker) {
+        return Ok(false);
+    }
+    std::fs::write(&p, want).map_err(|e| format!("写 bunfig.toml 失败: {}: {e}", p.display()))?;
+    Ok(true)
+}
+
+/// uv.toml 目标内容（纯函数）：`[[index]]` default 形态（uv 0.4.23+ 数组表）。
+pub fn uv_toml_content(url: &str) -> String {
+    format!("[[index]]\nurl = \"{url}\"\ndefault = true\n")
+}
+
+/// uv index 落用户配置目录下 `uv/uv.toml`（POSIX `~/.config/uv/`、win `%APPDATA%\uv\`，
+/// uv 各平台原生发现位；目录注入便于测）。返回是否写入。
+pub fn ensure_uv_toml_in(config_dir: &Path, url: &str) -> Result<bool, String> {
+    let dir = config_dir.join("uv");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("建目录失败: {}: {e}", dir.display()))?;
+    let p = dir.join("uv.toml");
+    let want = uv_toml_content(url);
+    let cur = std::fs::read_to_string(&p).unwrap_or_default();
+    if cur == want {
+        return Ok(false);
+    }
+    std::fs::write(&p, want).map_err(|e| format!("写 uv.toml 失败: {}: {e}", p.display()))?;
+    Ok(true)
+}
+
+/// 生产入口（uv）：用户配置目录解析（dirs 同源，POSIX=XDG ~/.config、win=%APPDATA%）。
+pub fn ensure_uv_toml(url: &str) -> Result<bool, String> {
+    let base = dirs::config_dir().ok_or("无法确定用户配置目录（uv.toml）")?;
+    ensure_uv_toml_in(&base, url)
+}
+
+/// pip.conf 目标内容（纯函数）。
+pub fn pip_conf_content(url: &str) -> String {
+    format!("[global]\nindex-url = {url}\n")
+}
+
+/// pip 配置文件名（win=pip.ini、POSIX=pip.conf；pip 各平台原生发现位）。
+pub fn pip_conf_name() -> &'static str {
+    if cfg!(windows) { "pip.ini" } else { "pip.conf" }
+}
+
+/// pip index 落用户配置目录下 `pip/`（目录注入便于测）。返回是否写入。
+pub fn ensure_pip_conf_in(config_dir: &Path, url: &str) -> Result<bool, String> {
+    let dir = config_dir.join("pip");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("建目录失败: {}: {e}", dir.display()))?;
+    let p = dir.join(pip_conf_name());
+    let want = pip_conf_content(url);
+    let cur = std::fs::read_to_string(&p).unwrap_or_default();
+    if cur == want {
+        return Ok(false);
+    }
+    std::fs::write(&p, want).map_err(|e| format!("写 pip 配置失败: {}: {e}", p.display()))?;
+    Ok(true)
+}
+
+/// 生产入口（pip）。
+pub fn ensure_pip_conf(url: &str) -> Result<bool, String> {
+    let base = dirs::config_dir().ok_or("无法确定用户配置目录（pip）")?;
+    ensure_pip_conf_in(&base, url)
+}
+
+/// CARGO_HOME 解析：进程环境变量 > 用户级变量（win 注册表 / POSIX profile 块，
+/// ark Windows 接管模型重定位 EnvRoot 位由此生效）> 默认 `~/.cargo`。
+pub fn cargo_home_path() -> Result<PathBuf, String> {
+    if let Some(v) = std::env::var_os("CARGO_HOME") {
+        return Ok(PathBuf::from(v));
+    }
+    if let Ok(Some(v)) = crate::platform::get_user_env_var("CARGO_HOME") {
+        let expanded = crate::platform::expand_env_vars(&v);
+        return Ok(crate::platform::expand_install_path(&expanded));
+    }
+    dirs::home_dir()
+        .map(|h| h.join(".cargo"))
+        .ok_or_else(|| "无法确定用户主目录（cargo home）".to_string())
+}
+
+/// cargo 镜像配置落 CARGO_HOME/config.toml（整文件内容比对；rsproxy 全量形态等内容即零重写；
+/// 目录注入便于测）。返回是否写入。
+pub fn ensure_cargo_config_in(cargo_home: &Path, content: &str) -> Result<bool, String> {
+    std::fs::create_dir_all(cargo_home)
+        .map_err(|e| format!("建目录失败: {}: {e}", cargo_home.display()))?;
+    let p = cargo_home.join("config.toml");
+    let cur = std::fs::read_to_string(&p).unwrap_or_default();
+    if cur == content {
+        return Ok(false);
+    }
+    std::fs::write(&p, content).map_err(|e| format!("写 cargo config 失败: {}: {e}", p.display()))?;
+    Ok(true)
+}
+
+/// 生产入口（cargo）。
+pub fn ensure_cargo_config(content: &str) -> Result<bool, String> {
+    ensure_cargo_config_in(&cargo_home_path()?, content)
 }
 
 /// win `.cmd` 兜底内容（纯函数可测）：`%~dp0` 相对定位（
@@ -325,6 +601,125 @@ mod tests {
     fn 高版本拒载() {
         let e = parse("schema_version = 2\n").expect_err("应拒载");
         assert!(e.contains("高于引擎支持"), "{e}");
+    }
+
+    #[test]
+    fn mirror节_解析全键与空节判定() {
+        let f = parse(
+            "schema_version = 1\n[manifest.fnm.mirror]\nnpm_registry = \"https://registry.npmmirror.com\"\n[manifest.fnm.mirror.env]\nFNM_NODE_DIST_MIRROR = \"https://npmmirror.com/mirrors/node/\"\n[manifest.uv.mirror]\nuv_index = \"https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/\"\npip_index = \"https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/\"\nenv_unset = [\"UV_INDEX_URL\"]\n[manifest.rust.mirror]\n",
+        )
+        .expect("应解析");
+        let fnm = &f.manifest["fnm"];
+        let mir = fnm.mirror.as_ref().expect("mirror 节应在");
+        assert_eq!(
+            mir.npm_registry.as_deref(),
+            Some("https://registry.npmmirror.com")
+        );
+        assert_eq!(
+            mir.env.as_ref().unwrap()["FNM_NODE_DIST_MIRROR"],
+            "https://npmmirror.com/mirrors/node/"
+        );
+        assert!(!mir.is_empty_conf(), "有键即非空");
+        let uv = &f.manifest["uv"];
+        let um = uv.mirror.as_ref().unwrap();
+        assert!(um.uv_index.is_some() && um.pip_index.is_some());
+        assert_eq!(um.env_unset.as_deref(), Some(["UV_INDEX_URL".to_string()].as_slice()));
+        // cargo_config 空表存在但无值：全键空应省略（lint 依据）
+        let rust_mir = f.manifest["rust"].mirror.as_ref().unwrap();
+        assert!(rust_mir.is_empty_conf(), "仅空表无值应判空节");
+        // 无 mirror 节的工具零动作
+        assert!(!f.manifest.contains_key("nope"));
+    }
+
+    #[test]
+    fn npmrc_upsert_行级替换与保留() {
+        // 无 registry 行：追加文末，原有行不动
+        let t1 = npmrc_upsert("//registry.npmjs.org/:_authToken=secret\n", "https://registry.npmmirror.com");
+        assert!(t1.contains("registry=https://registry.npmmirror.com"));
+        assert!(t1.contains("_authToken=secret"), "认证行必须保留");
+        // 有 registry 行（带空白与大小写变体）：原位替换，不追加第二条
+        let t2 = npmrc_upsert("registry = https://registry.npmjs.org/\n_authToken=x\n", "https://registry.npmmirror.com");
+        assert_eq!(
+            t2.lines().filter(|l| l.split_once('=').is_some_and(|(k, _)| k.trim() == "registry")).count(),
+            1,
+            "只应有一条 registry 赋值行: {t2}"
+        );
+        assert!(t2.starts_with("registry=https://registry.npmmirror.com\n"));
+        assert!(t2.contains("_authToken=x"));
+        // 幂等：目标态再跑逐字不变
+        let t3 = npmrc_upsert(&t1, "https://registry.npmmirror.com");
+        assert_eq!(t3, t1);
+        // 空文本：单行成文件
+        assert_eq!(
+            npmrc_upsert("", "https://registry.npmmirror.com"),
+            "registry=https://registry.npmmirror.com\n"
+        );
+    }
+
+    #[test]
+    fn npmrc_落盘幂等() -> Result<(), String> {
+        let home = tempfile::tempdir().map_err(|e| e.to_string())?;
+        assert!(ensure_npmrc(home.path(), "https://registry.npmmirror.com")?, "首次应写");
+        let c1 = std::fs::read_to_string(home.path().join(".npmrc")).map_err(|e| e.to_string())?;
+        assert_eq!(c1, "registry=https://registry.npmmirror.com\n");
+        assert!(!ensure_npmrc(home.path(), "https://registry.npmmirror.com")?, "同值应跳过");
+        assert!(ensure_npmrc(home.path(), "https://registry.example.com")?, "换源应重写");
+        Ok(())
+    }
+
+    #[test]
+    fn bunfig_尾斜杠等价与幂等() -> Result<(), String> {
+        let home = tempfile::tempdir().map_err(|e| e.to_string())?;
+        assert!(ensure_bunfig(home.path(), "https://registry.npmmirror.com/")?, "首次应写");
+        // 无尾斜杠同源 URL：不应来回重写（npmmirror 两写法等价）
+        assert!(!ensure_bunfig(home.path(), "https://registry.npmmirror.com")?, "尾斜杠等价应跳过");
+        // 无镜像标记的旧文件重写（heal-mirror 同语义）
+        std::fs::write(home.path().join(".bunfig.toml"), "# 用户自定义\n").map_err(|e| e.to_string())?;
+        assert!(ensure_bunfig(home.path(), "https://registry.npmmirror.com/")?);
+        Ok(())
+    }
+
+    #[test]
+    fn uv与pip_落盘内容比对幂等() -> Result<(), String> {
+        let cfg = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let tuna = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/";
+        assert!(ensure_uv_toml_in(cfg.path(), tuna)?, "uv 首次应写");
+        let uv_toml = std::fs::read_to_string(cfg.path().join("uv").join("uv.toml"))
+            .map_err(|e| e.to_string())?;
+        assert!(uv_toml.contains("[[index]]"));
+        assert!(uv_toml.contains(&format!("url = \"{tuna}\"")));
+        assert!(uv_toml.contains("default = true"));
+        assert!(!ensure_uv_toml_in(cfg.path(), tuna)?, "内容一致应跳过");
+        assert!(ensure_pip_conf_in(cfg.path(), tuna)?, "pip 首次应写");
+        let pip = std::fs::read_to_string(cfg.path().join("pip").join(pip_conf_name()))
+            .map_err(|e| e.to_string())?;
+        assert!(pip.contains(&format!("index-url = {tuna}")));
+        assert!(!ensure_pip_conf_in(cfg.path(), tuna)?, "内容一致应跳过");
+        Ok(())
+    }
+
+    #[test]
+    fn cargo配置_落盘内容比对幂等() -> Result<(), String> {
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let content = "[source.crates-io]\nreplace-with = \"rsproxy\"\n";
+        assert!(ensure_cargo_config_in(dir.path(), content)?);
+        assert!(!ensure_cargo_config_in(dir.path(), content)?, "内容一致应跳过");
+        assert!(ensure_cargo_config_in(dir.path(), "[other]\n")?, "内容漂移应重写");
+        Ok(())
+    }
+
+    /// 对线 R5：值与键形态校验（注入面；TOML 转义可产出真实换行）。
+    #[test]
+    fn mirror值键形态_校验规则() {
+        assert!(mirror_value_sane("https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"));
+        assert!(!mirror_value_sane("https://x/\nregistry=evil"), "换行拒");
+        assert!(!mirror_value_sane("say \"hi\""), "双引号拒");
+        assert!(!mirror_value_sane("crlf\r\n"), "\\r 拒");
+        assert!(mirror_env_key_sane("FNM_NODE_DIST_MIRROR"));
+        assert!(mirror_env_key_sane("_OK"));
+        assert!(!mirror_env_key_sane("BAD-KEY"));
+        assert!(!mirror_env_key_sane("K=1"));
+        assert!(!mirror_env_key_sane(""));
     }
 
     #[test]

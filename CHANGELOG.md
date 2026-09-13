@@ -5,6 +5,8 @@
 ## [Unreleased]
 
 - 仓再更名对齐：GitHub 侧 ark-rs 已更名 ark_rs（2026-09-13，旧名 301 重定向在读），`REPO` 常量与 seed 流水仓引用、remote、活文档（README clone 与 cd、AGENTS、SKILL、PLAN）统一切新名；镜像段与资产名（`ark/`、`ome/`、`ark-*`、`ome-*`）与仓名解耦不动。旧二进制直连 301 后 Bearer 被 ureq 默认策略丢弃仅回落匿名配额（公开仓 200），gh 回退与镜像段兜底不断源（codex 对线实证）。
+- manifest mirror 节（D42 运行时源中国镜像统一落 manifest）：L1 `mirror` 节引擎落码（`env`/`env_unset`/`npm_registry`/`bunfig_registry`/`uv_index`/`pip_index`/`cargo_config` 七键，值数据面声明、落点与合并语义引擎按类型实现；schema 不升，旧引擎静默忽略前向兼容）；接线 `apply_manifest_primitives`（env_set 后、post_install 前，幂等分支与早退通道共用，存量端升级即得）；npmrc 行级 upsert 保留认证行、bunfig 尾斜杠等价比对、uv/pip 落各平台原生发现位（win `%APPDATA%` 实证 uv 只认此处不认 `~/.config/uv`）、cargo config 按 CARGO_HOME 解析序内容比对；platform 增 `remove_user_env_var`（win 注册表删值 / POSIX env 块摘行，块空整块收口）；bunfig 写语义收编 manifest 单一权威（heal_bunfig 委托）；catalog_lint 增 mirror 面（空节应省略）；fixtures 增 fnm/uv/bun 三节基准形态（omc 数据面抄写基准）。Windows 真机实证：四键终态（npmrc/bunfig/uv.toml/pip.ini）加镜像 env 加 env_unset 撤旧全链幂等绿，`npm config get registry` 读出 npmmirror。
+- rust 接管扩 POSIX（D42）：`rustup.rs` 拆平台双形态（Windows EnvRoot 重定位模型零变化；POSIX 系统标准位 `~/.rustup`/`~/.cargo` 不重定位），rsproxy rustup-init 引导（evergreen 边车锚、chmod 755、host 三元组自检）、持久 RUSTUP_DIST_SERVER/RUSTUP_UPDATE_ROOT（POSIX 走 profile env 块即 shell rc）、cargo config rsproxy 全量形态（≥3 处 rsproxy 关键标志对齐 wsl 总台 A13 判据）、PATH `~/.cargo/bin`；verify 增 POSIX dev-rust 维度（`~/.cargo/bin/rustc` 加 `~/.rustup/toolchains`）、heal dev-rust 键开 POSIX。R016 增 mirror 节规范；待 omc 数据面：manifest mirror 三节、tools.toml rust POSIX 字段、镜像桶 rustup-init POSIX 资产名。
 
 ## [1.0.0] - 2026-09-12
 

@@ -132,6 +132,14 @@ static DIMS: &[DimDef] = &[
         files_any: &[],
     },
     DimDef {
+        name: "dev-rust",
+        windows: false,
+        posix: true,
+        tools: &[],
+        files_all: &["~/.cargo/bin/rustc", "~/.rustup/toolchains"],
+        files_any: &[],
+    },
+    DimDef {
         name: "localbin16",
         windows: false,
         posix: true,

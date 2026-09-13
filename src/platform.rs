@@ -492,6 +492,56 @@ pub fn get_user_env_var(key: &str) -> Result<Option<String>, String> {
     }
 }
 
+/// 撤除用户级环境变量（D42 mirror env_unset 通道；幂等）。返回是否真的撤了。
+/// Windows 删 HKCU\Environment 值并同步当前进程；POSIX 摘 profile env 标记块内行。
+pub fn remove_user_env_var(key: &str) -> Result<bool, String> {
+    if user_env_write_blocked() {
+        eprintln!("[INFO] ARK_TEST_NO_PATH_REG=1：跳过用户级变量撤除（测试隔离）: {key}");
+        return Ok(false);
+    }
+    #[cfg(windows)]
+    {
+        windows::remove_user_env_var(key)
+    }
+    #[cfg(not(windows))]
+    {
+        unix::remove_user_env_var(key)
+    }
+}
+
+/// env 块摘除单键（纯函数，D42 env_unset 通道）：**全文件撤变量不分写入者**——
+/// 托管块内（读序双块合并体）摘行、体空则两块整撤不残留空标记；托管块之外
+/// 的同名 `export KEY=` 行（遗产脚本或用户手写形态）同样摘除，
+/// 否则旧变量继续生效而日志已报「已撤」（对线 R1）。
+pub fn remove_env_export(text: &str, key: &str) -> String {
+    let prefix_tag = format!("export {key}=");
+    let body: Vec<String> = merged_env_body(text)
+        .into_iter()
+        .filter(|l| !l.trim_start().starts_with(&prefix_tag))
+        .collect();
+    let base = if body.is_empty() {
+        env_strip_block(
+            &env_strip_block(text, ARK_ENV_MARKER, ARK_ENV_END),
+            LEGACY_ENV_MARKER,
+            LEGACY_ENV_END,
+        )
+    } else {
+        rebuild_env_block(text, &body)
+    };
+    // 块外同名行摘除（幂等：重建后的 base 块内已无该键，此处只清块外残留）
+    let mut out: Vec<&str> = Vec::new();
+    for l in base.lines() {
+        if !l.trim_start().starts_with(&prefix_tag) {
+            out.push(l);
+        }
+    }
+    let mut joined = out.join("\n");
+    if !joined.is_empty() && !joined.ends_with('\n') {
+        joined.push('\n');
+    }
+    joined
+}
+
 /// 当前进程是否管理员（以写权限打开 HKLM Environment 判定；非 Windows 恒 false）。
 pub fn is_elevated() -> bool {
     #[cfg(windows)]
@@ -772,6 +822,23 @@ mod windows {
             .map_err(|e| format!("打开 HKCU\\Environment 失败: {e}"))?;
         Ok(env.get_value(key).ok())
     }
+
+    /// 删用户级环境变量（值不存在返回 false 不报错）并同步当前进程与广播。
+    pub fn remove_user_env_var(key: &str) -> Result<bool, String> {
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let env = hkcu
+            .open_subkey_with_flags("Environment", KEY_WRITE)
+            .map_err(|e| format!("打开 HKCU\\Environment 失败: {e}"))?;
+        match env.delete_value(key) {
+            Ok(()) => {
+                std::env::remove_var(key);
+                notify_env_change();
+                Ok(true)
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(format!("删用户环境变量失败: {key}: {e}")),
+        }
+    }
 }
 
 // ── Linux / macOS 实现 ──
@@ -1016,7 +1083,8 @@ mod unix {
         Ok(())
     }
 
-    /// 读用户级环境变量：profile 的 ome env 标记块内找 `export KEY="value"`（未设置返回 None）。
+    /// 读用户级环境变量：profile 全文件找 `export KEY="value"`（标记块内外皆认，
+    /// 遗产脚本手写形态同样读到；未设置返回 None）。
     pub fn get_user_env_var(key: &str) -> Result<Option<String>, String> {
         let text = read_profile()?;
         let prefix = format!("export {key}=\"");
@@ -1028,6 +1096,20 @@ mod unix {
             }
         }
         Ok(None)
+    }
+
+    /// 撤除用户级环境变量：profile 全文件摘同名 export 行（remove_env_export 纯函数做文本，
+    /// 块内外不分写入者）；**按写后文本是否真变化报告**（防「报已撤而文件没动」，
+    /// 对线 R1）；撤后同步当前进程。
+    pub fn remove_user_env_var(key: &str) -> Result<bool, String> {
+        let text = read_profile()?;
+        let new_text = super::remove_env_export(&text, key);
+        if new_text == text {
+            return Ok(false);
+        }
+        write_profile(&new_text)?;
+        std::env::remove_var(key);
+        Ok(true)
     }
 }
 
@@ -1269,6 +1351,29 @@ mod tests {
         assert!(!t.contains("export K=\"old\""), "旧值不重复带");
         assert!(t.contains("export ONLY_OLD=\"1\""), "旧块独有键保留");
         assert!(t.contains("other"), "块外原文不动");
+    }
+
+    #[test]
+    fn env块_摘除单键与空块收口() {
+        // D42 mirror env_unset 的纯函数面：摘目标键、块外原文不动、块内他键保留
+        let t1 = merge_env_exports(&merge_env_exports("export A=1\n", "K1", "v1"), "K2", "v2");
+        let t2 = remove_env_export(&t1, "K1");
+        assert!(!t2.contains("export K1="), "目标键应摘除");
+        assert!(t2.contains("export K2=\"v2\""), "块内他键保留");
+        assert!(t2.contains("export A=1"), "块外原文不动");
+        assert!(t2.contains("# >>> ark env"), "仍有他键时块保留");
+        // 摘掉最后一个键：整块收口，不残留空标记块
+        let t3 = merge_env_exports("export A=1\n", "ONLY", "x");
+        let t4 = remove_env_export(&t3, "ONLY");
+        assert!(!t4.contains("# >>> ark env"), "体空应整块收口");
+        assert!(t4.contains("export A=1"), "块外原文不动");
+        // 摘不存在的键：块在文末的规范形态下幂等不变
+        assert_eq!(remove_env_export(&t1, "NOPE"), t1);
+        // 块外同名行（遗产脚本/用户手写形态）同样摘除（对线 R1：撤变量不分写入者）
+        let legacy = "export UV_INDEX_URL=\"https://old.example\"\nalias ll='ls -l'\n";
+        let t5 = remove_env_export(legacy, "UV_INDEX_URL");
+        assert!(!t5.contains("UV_INDEX_URL"), "块外旧变量行应摘除");
+        assert!(t5.contains("alias ll='ls -l'"), "无关行不动");
     }
 
     #[test]

@@ -106,7 +106,7 @@
 
 > 当前目标的进程：只记录当前这一个目标的进行状态。
 
-- 当前目标：D41 更名 Ark（2026-09-12 立项）。计划已落 PLAN（四阶段与自测面）；前置：本地目录迁 `D:\ark-rs`、herdr 飞轮对线；随后按 A 至 D 落码，收口 v1.0.0 封版。
+- 当前目标：D42 运行时源中国镜像统一落 manifest（2026-09-13 立项）。manifest DSL 扩 mirror 节（fnm/uv/bun 数据面）加 rust 接管扩 POSIX（rsproxy 全量）；验收面 wsl 总台 verify A13 四件断言。计划见 `PLAN.md`。
 
 ## 历史
 
@@ -114,6 +114,7 @@
 
 | 日期 | 目标 | 结果 |
 | --- | --- | --- |
+| 2026-09-12 | D41 更名 Ark | 达成：四阶段 A/B/C 对线逐批推 main；v1.0.0 发版（tag CI 绿、release 六资产双名同 digest、双 stable 段 200、部署位验收全绿）；omc 三件批切回执（tools.ark seq 10、deploy 全切 ark、lan-linux 实证通）；余过渡期运营观测（ome/ 面停段待存量机水位清零） |
 | 2026-09-10 | D34 云端清单防 MITM 非对称校验 | 达成：minisign 签名加内嵌公钥（本地与云端一起校验）；云端签名件首发、本机 sync 验签通过、篡改阻断与自愈双实证；单测与门禁全绿 |
 | 2026-09-10 | D33 软件清单云端化与实时刷新 | 达成：主功能 catalog 下的 status 与 sync 两子功能加 TTL 自动刷新；真机旧二进制读到云端新增软件；cargo test 与四件套全绿 |
 | 2026-09-10 | D32 typst 入册 | 达成：catalog pin v0.15.1 三平台（digest 锚加本机实测核验）；win 真机 install 幂等二连与 status 三态齐；推送 main 后 seed-mirror 自动入镜（镜像三资产与边车 sha 逐字一致）；计数 46 改 47 |

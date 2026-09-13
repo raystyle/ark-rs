@@ -22,7 +22,7 @@
 | R012 | `docs\references\R012-ohmypwsh与ome对齐清单-linux-windows.md` | 历史对齐清单：已降级为 catalog 数据迁移参考（2026-09-01 被完整迁移裁决取代；D18 源项目不存在） |
 | R013 | `docs\references\R013-Agent友好IO契约-输出格式退出码与冻结面.md` | 输出三格式、数据错误分流、命令数据块字段、退出码与对外冻结契约（自 README 收敛） |
 | R014 | `docs\references\R014-ohmycloud种子清单-ISSUE派任务与对齐.md` | 与 ohmycloud 协调（herdr 通道）；agent 部署委托与管辖边界终版（D29/D37：清单数据权威归 omc）；版本对齐水位 |
-| R016 | `docs\references\R016-云端清单与manifest标准.md` | 云端 catalog 与 manifest 数据标准草案（两件分离同签、schema 版本化、三层 DSL 原语、跨仓分工 omc 维护 ark 执行；D39） |
+| R016 | `docs\references\R016-云端清单与manifest标准.md` | 云端 catalog 与 manifest 数据标准（两件分离同签、schema 版本化、三层 DSL 原语、mirror 镜像源节 D42、跨仓分工 omc 维护 ark 执行；D39/D42） |
 | R015 | `docs\references\R015-软件清单发布更新与播种标准.md` | 清单发布、更新与软件播种三流程唯一标准（三重门、三通道、双路线、管辖边界两域分治；D35/D36） |
 | S001 | `docs\research\S001-incurs选型研究-不迁移只吸收三模式.md` | incurs 框架选型裁决：不迁移，吸收错误结构、单一渲染层、帮助元数据三模式 |
 | S002 | `docs\research\S002-command-line-rust方法论-测试oracle与输出纪律.md` | Command-Line Rust 全书方法论研究：测试 oracle 三件套值得吸收，错误/参数形态 ome 已超越 |
@@ -99,6 +99,7 @@
 | 2026-09-10 | `docs\diary\2026-09-10-软件清单云端化与实时刷新.md` | D33 软件清单云端化：主功能 catalog 下的 status 与 sync 两子功能、TTL 自动刷新、真机旧二进制读到云端新增软件的端到端实证 |
 | 2026-09-11 | `docs\diary\2026-09-11-manifest引擎对线三轮补审与修正.md` | manifest 引擎对线三轮补审：L2 管道抽干假超时（M017 实证）、`.cmd` 兜底相对定位、manifest 拉取吞错与同锚不刷、双轨判定粒度与 shim 落点、catalog manifest 字段解析；测试 8 加 4 全绿 |
 | 2026-09-12 | `docs\diary\2026-09-12-D41立项更名Ark迁移计划.md` | D41 立项更名 Ark：七点口径与四阶段迁移计划落 PLAN/PRD/GOAL/TODO；oma heal hooks 新形态知识转递（hook 在但 shim 缺失） |
+| 2026-09-13 | `docs\diary\2026-09-13-D42运行时源镜像统一落manifest.md` | D42 manifest mirror 节与 rust POSIX 接管：七键 DSL、A13 四件对齐、Windows 真机全链实证、uv win 发现位实证与 M029 |
 
 ## 错误速查分类
 
@@ -110,7 +111,7 @@
 | M102 | `docs\mistakes\M102-解压与安装-错误.md` | 解压与安装错误（九分派、防穿越、幂等；M002 测试沙盒漏 catalog；M004 上游布局变更致展平误判；M017 管道未抽干致 post_install 假超时；M021 杀进程树顺序错致 taskkill 无效；M022 逐通道复制原语应用致 env_set 漏接与语义分叉；M023 直链幂等判据只看悬空致旧 target 陈旧遮蔽；M025 fnm 版本目录用字典序取最大） | M002、M004、M017、M021、M022、M023、M025 |
 | M103 | `docs\mistakes\M103-PATH与注册表-错误.md` | PATH 与注册表错误（HKCU、展开、去重；M009 Unix PATH 单槽；M010 死链前缀误伤；M011 写 PATH 未广播；M027 fnm 钩子裸命令名依赖 PATH 执行序） | M009、M010、M011、M027 |
 | M104 | 待建 | 文档与命名错误（命名、六态、diary、标题规范） | |
-| M105 | `docs\mistakes\M105-工具链与脚本-错误.md` | 工具链与脚本错误（sed、grep、PowerShell、中文路径；M005 Set-Content -NoNewline；M012 种子差集未 HEAD；M015 边车写源目录；M016 cfg 门控面漏跑矩阵；M018 盲切删段连带删掉相邻用例；M020 编辑工具把 CRLF 行写成 LF 致整文件假 diff；M024 一次性脚本删后回仓二犯） | M005、M006、M012、M015、M016、M018、M020、M024 |
+| M105 | `docs\mistakes\M105-工具链与脚本-错误.md` | 工具链与脚本错误（sed、grep、PowerShell、中文路径；M005 Set-Content -NoNewline；M012 种子差集未 HEAD；M015 边车写源目录；M016 cfg 门控面漏跑矩阵；M018 盲切删段连带删掉相邻用例；M020 编辑工具把 CRLF 行写成 LF 致整文件假 diff；M024 一次性脚本删后回仓二犯；M029 Windows 用户目录走 known folder API 不吃 env 覆盖，隔离 HOME 端到端必失真） | M005、M006、M012、M015、M016、M018、M020、M024、M029 |
 | M106 | `docs\mistakes\M106-catalog转换与数据保真-错误.md` | catalog 转换与数据保真错误（转换合并规则、psd1 与 New-ToolDef 分歧、平台字段缺失容忍；M014 同名族资产 digest 错配） | M001、M003、M014 |
 
 迭代规则：踩坑按当前最大号接编 MNNN 进对应分类文件（M0xx 行级、新分类用 M1xx 接编）；一行一事；同根因或同型坑**可合并聚合**进已有条目（保留最早编号与首踩日期，聚合后的正解写全）；反复踩落 `docs\research\`；改「正确处理」不删历史行；新分类文件登记本节。
@@ -119,7 +120,7 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `src\manifest.rs` | manifest.toml 引擎（R016 B 层 D39）：解析与 schema 拒载、L1 env_set/shims 三平台原语、L2 受控命令超时与失败报告 |
+| `src\manifest.rs` | manifest.toml 引擎（R016 B 层 D39）：解析与 schema 拒载、L1 env_set/shims 三平台原语、L1 mirror 镜像源节七键落源（D42）、L2 受控命令超时与失败报告 |
 | `src\lib.rs` | crate 根：模块声明与库入口（集成测试链接面） |
 | `src\main.rs` | clap CLI 入口与子命令分派（query/pin/install/update/status/init（self-deploy 别名）/self update/verify/heal/doctor/skill；`--llms`；输出纪律与示例元数据在文件顶部） |
 | `src\omerr.rs` | 机器可读错误四元组（code/message/hint/exit_code），main 按 exit_code 退出 |
@@ -131,20 +132,20 @@
 | `src\install.rs` | 安装主编排（幂等、防穿越、验版本、回写） |
 | `src\extract.rs` | 解压/安装九分派 |
 | `src\envpath.rs` | 注册表用户 PATH 管理（re-export platform 的跨平台 PATH 管理） |
-| `src\platform.rs` | 平台抽象层：EnvRoot 默认路径、PATH 管理、环境变量展开、official 判定、self-deploy 目标 |
+| `src\platform.rs` | 平台抽象层：EnvRoot 默认路径、PATH 管理、环境变量读写与撤除（win 注册表 / POSIX profile env 块）、环境变量展开、official 判定、self-deploy 目标 |
 | `src\toolver.rs` | 已装版本探测（探测参数与正则读 catalog `probe_args`/`probe_pattern` 字段，D28 迁移；exe 路径解析与 PATH 现查） |
 | `src\status.rs` | status 三态对照 |
 | `src\selfdeploy.rs` | 自部署到用户程序目录（Windows `%LOCALAPPDATA%\Programs\ark`，接管旧 ome 位并留 ome 别名）+ catalog 同步到用户数据目录 |
 | `src\selfupdate.rs` | ark 自升级三通道（dev 滚动 / stable 正式版 / git 源码）：digest 对比后替换自部署目标与 ome 别名；官方失败回落镜像对应通道（段读序 ark/ 先 ome/ 回落；latest 段已退役）；随升级搬迁旧元数据七件套 |
 | `src\vsbuild.rs` | VS Build Tools 接管（evergreen 引导器、gsudo 提权、机器级 PATH、cl.exe 幂等探测；语义见 R001 六） |
-| `src\rustup.rs` | Rust 接管（rustup 引导器型：rsproxy 直链 stable 滚动、RUSTUP_HOME/CARGO_HOME 重定位 EnvRoot、cargo sparse 镜像；自 set-rust.ps1 迁移） |
+| `src\rustup.rs` | Rust 接管（rustup 引导器型：rsproxy 直链 stable 滚动、cargo sparse 镜像全平台；Windows RUSTUP_HOME/CARGO_HOME 重定位 EnvRoot，POSIX 系统标准位 `~/.rustup` 与 `~/.cargo`（D42）；自 set-rust.ps1 迁移） |
 | `src\docker.rs` | Docker Engine 接管（自 set-docker.ps1 迁移：static zip + Windows 服务注册 + daemon.json 合并 + compose 插件 + 机器级 PATH；gsudo 提权；与 vsbuild 差异在有 pin 非 evergreen） |
 | `src\verify.rs` | 部署域验收维度注册表（catalog 三态加文件存在判定，`dim=PASS/FAIL/NA` 收割行；流式输出） |
 | `src\heal.rs` | 部署维度幂等自愈（install 类原生安装、密钥载体/镜像源 heal-keys/heal-mirror、agent 域休眠、外域只提示、mac-* 别名归一） |
 | `src\doctor.rs` | 核心诊断命令两层（D07 三层，D30 收窄去 agent 层：装态对账归 omc、token 归 oma diagnose）加 check 节：环境错误、配置健康（D11）、部署深诊（D12）、网络通连（D13 并行 HEAD、5s 总超时）；verdict=ready/degraded/broken；FAIL 即 exit 1 |
 | `tests\cli.rs` | CLI 集成冒烟（离线夹具 catalog，断退出码与 key=value 标记行） |
 | `tests\catalog_lint.rs` | catalog 结构机检（D28 入册清单化：在管必有 probe_pattern、正则可编译含捕获组、sha 64 hex；D29 增 pin 资产名必被 asset_pattern 命中；真仓与夹具同规则） |
-| `tests\install.rs` | install 链路集成（临时 EnvRoot 沙盒 + 动态 catalog，全程离线：幂等、防穿越） |
+| `tests\install.rs` | install 链路集成（临时 EnvRoot 沙盒 + 动态 catalog，全程离线：幂等、防穿越、mirror 节接线与测试闸门） |
 | `tests\linux_install.rs` | Linux/macOS 部署集成（真实 GitHub 资产 jq，HOME 沙盒；`cfg(not(windows))` 门控） |
 | `tests\golden.rs` | 黄金文件回归（expected oracle 全量比对 stdout，S002 三件套） |
 | `tests\real.rs` | 真机闸门（ARK_TEST_REAL=1 才跑，对照本机 catalog 与 EnvRoot 部署态） |

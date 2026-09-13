@@ -35,7 +35,7 @@ cargo build --release
 检测驱动，一条链走完：
 
 1. `ark doctor` 体检：系统 / 依赖两层诊断加 check 节，列缺口与修复建议
-2. `ark install [名]` 幂等安装：版本解析、下载、sha 校验、解压、PATH 注册与注册表 / 配置写入一次完成；已装且版本一致即跳过；省略名则全量
+2. `ark install [名]` 幂等安装：版本解析、下载、sha 校验、解压、PATH 注册与注册表 / 配置写入一次完成；已装且版本一致即跳过（configure 面照跑）；省略名则全量
 3. `ark verify` 部署域验收：逐维度 PASS/FAIL，FAIL 退出码非零，可进脚本
 4. `ark heal` 自愈：PATH 修复、镜像源补写等，幂等；`--dry-run` 预览
 
@@ -87,6 +87,8 @@ ark catalog sync   # 立即从云端刷新（默认 TTL 24h 自动刷新；ARK_C
 ## 镜像源
 
 下载官方渠道失败自动回落 env.ohmygh.com 自建镜像；仅当有 sha 锚（catalog pin 或官方清单）才回落，校验不放松。
+
+运行时工具族的中国源配置走 manifest `mirror` 节（数据面声明、引擎落源，D42）：fnm 面 FNM_NODE_DIST_MIRROR 与 npm registry（npmmirror）、uv / pip 清华 TUNA 加 python 安装 NJU、bun npmmirror；win 落用户环境变量与各工具原生配置位、POSIX 落 shell rc（profile env 块）与 XDG 配置位。rust 由 rustup 接管模块原生落 rsproxy 全量（三平台：装走 rsproxy rustup-init，RUSTUP_DIST_SERVER / RUSTUP_UPDATE_ROOT 加 cargo config；POSIX 用 `~/.rustup` 与 `~/.cargo` 系统标准位）。幂等：内容一致零重写，存量端 `ark install` / `ark update` 即得。
 
 ## 输出契约
 

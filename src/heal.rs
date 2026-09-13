@@ -87,7 +87,7 @@ static HEALS: &[HealDef] = &[
     HealDef {
         name: "dev-rust",
         windows: true,
-        posix: false,
+        posix: true,
         action: HealAction::Install(&["rust"]),
     },
     HealDef {
@@ -728,16 +728,9 @@ pub fn heal_keys_carrier(home: &Path) -> Result<(bool, Vec<String>), String> {
 
 // ── heal-mirror.py 原生移植（镜像源）──
 
-/// bunfig npmmirror：~/.bunfig.toml 含镜像标记则不重写（heal-mirror.py 同款整文件写回语义）。
+/// bunfig npmmirror：写语义单一权威在 manifest mirror 节（D42 收编，防双份漂移）。
 pub fn heal_bunfig(home: &Path) -> Result<bool, String> {
-    let p = home.join(".bunfig.toml");
-    let want = "[install]\nregistry = \"https://registry.npmmirror.com/\"\n";
-    let content = std::fs::read_to_string(&p).unwrap_or_default();
-    if p.exists() && content.contains("npmmirror") {
-        return Ok(false);
-    }
-    std::fs::write(&p, want).map_err(|e| format!("写 bunfig.toml 失败: {}: {e}", p.display()))?;
-    Ok(true)
+    crate::manifest::ensure_bunfig(home, "https://registry.npmmirror.com/")
 }
 
 /// Windows：`go env -w GOPROXY=...`（与 doctor config-goproxy 同源）。

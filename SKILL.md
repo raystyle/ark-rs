@@ -21,7 +21,7 @@
 | --- | --- | --- | --- |
 | `ark doctor` | **原语·检测诊断**：系统/依赖两层加 check 节（环境错误、配置健康、部署深诊、网络通连） | sys.* / dep= / check= / verdict | 1 = check 节有 FAIL |
 | `ark status` | **原语·三态对照**（锁定/已装/PATH） | tool,locked,installed,path,exe | 0/1 |
-| `ark install [名]` | **原语·幂等安装**（下载 + PATH / 注册表 / 配置）：省略则全量；agent PATH 在位即跳过；官方失败回落 env.ohmygh.com 镜像 | tool,action,version,dir | 0/1 |
+| `ark install [名]` | **原语·幂等安装**（下载 + PATH / 注册表 / 配置 + manifest mirror 节镜像源落源）：省略则全量；agent PATH 在位即跳过；官方失败回落 env.ohmygh.com 镜像 | tool,action,version,dir | 0/1 |
 | `ark query [名]` | 只解析版本与资产，不安装；省略则全量 | tool,tag,version,asset,sha256 | 0/1 |
 | `ark update [名]` | 拉云端最新并安装（不回写锁定，锁定归数据面；临时钉版走 pin）：省略则全量；agent PATH 在位跳过 | 同 install | 0/1 |
 | `ark pin [名]` | 查看/设置锁定；省略则全量（lock 别名） | tool,tag,version,sha256 | 0/1 |

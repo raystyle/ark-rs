@@ -19,3 +19,23 @@ bunx = "bun"
 [manifest.demo.post_install]
 win = [["cmd", "/c", "echo", "ome-manifest-ok"]]
 skip = ["linux", "mac"]
+
+# 镜像源节样例（D42，全集口径对齐 ohmypwsh set-mirror.ps1 / P0017；真实数据权威在
+# ohmycloud catalog-seed，此为格式契约基准形态）。env 通道同 env_set：win 注册表、POSIX profile
+# env 块（shell rc）；env_unset 撤旧通道变量防盖过文件配置。
+[manifest.fnm.mirror]
+npm_registry = "https://registry.npmmirror.com"
+
+[manifest.fnm.mirror.env]
+FNM_NODE_DIST_MIRROR = "https://npmmirror.com/mirrors/node/"
+
+[manifest.uv.mirror]
+uv_index = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"
+pip_index = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"
+env_unset = ["UV_INDEX_URL", "UV_DEFAULT_INDEX", "PIP_INDEX_URL", "PIP_TRUSTED_HOST"]
+
+[manifest.uv.mirror.env]
+UV_PYTHON_INSTALL_MIRROR = "https://mirror.nju.edu.cn/github-release/astral-sh/python-build-standalone/"
+
+[manifest.bun.mirror]
+bunfig_registry = "https://registry.npmmirror.com/"
