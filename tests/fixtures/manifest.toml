@@ -39,3 +39,11 @@ UV_PYTHON_INSTALL_MIRROR = "https://mirror.nju.edu.cn/github-release/astral-sh/p
 
 [manifest.bun.mirror]
 bunfig_registry = "https://registry.npmmirror.com/"
+
+# go 代理语义键（D44 补位）：GOENV 文件行级 upsert 加配套 GOSUMDB
+[manifest.go.mirror]
+goproxy = "https://goproxy.cn,direct"
+
+[manifest.go.mirror.env]
+GOPROXY = "https://goproxy.cn,direct"
+GO111MODULE = "on"

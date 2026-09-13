@@ -47,7 +47,10 @@ pub struct ToolManifest {
 /// - `bunfig_registry`：`~/.bunfig.toml` 整文件（含本 URL 即不重写，heal_bunfig 同语义）；
 /// - `uv_index`：uv.toml 整文件 `[[index]]` default（POSIX `~/.config/uv/`、win `%APPDATA%\uv\`）；
 /// - `pip_index`：pip.conf（POSIX `~/.config/pip/pip.conf`、win `%APPDATA%\pip\pip.ini`）；
-/// - `cargo_config`：CARGO_HOME 解析位 config.toml 整文件（rsproxy 全量形态等内容比对）。
+/// - `cargo_config`：CARGO_HOME 解析位 config.toml 整文件（rsproxy 全量形态等内容比对）；
+/// - `goproxy`：go 代理语义键（D44 补位，值如 `https://goproxy.cn,direct`）：GOENV 文件
+///   行级 upsert（win `%APPDATA%\go\env`、POSIX `~/.config/go/env`，即 `go env -w` 持久位，
+///   直写不依赖 go 在位），配套 GOSUMDB=sum.golang.google.cn。
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct Mirror {
@@ -58,6 +61,10 @@ pub struct Mirror {
     pub uv_index: Option<String>,
     pub pip_index: Option<String>,
     pub cargo_config: Option<String>,
+    /// go 代理语义键（值如 `https://goproxy.cn,direct`）：行级 upsert 落 GOENV 文件
+    /// （win `%APPDATA%\go\env`、POSIX `~/.config/go/env`，go 二进制无须在位），
+    /// 配套 GOSUMDB=sum.golang.google.cn（goproxy.cn 生态的 sumdb 镜像，heal 先例同款）。
+    pub goproxy: Option<String>,
 }
 
 impl Mirror {
@@ -70,6 +77,7 @@ impl Mirror {
             && self.uv_index.is_none()
             && self.pip_index.is_none()
             && self.cargo_config.is_none()
+            && self.goproxy.is_none()
     }
 }
 
@@ -246,6 +254,7 @@ pub fn apply_mirror(m: &ToolManifest, tool: &str, home: &Path) -> Result<(), Str
         ("bunfig_registry", mir.bunfig_registry.as_deref()),
         ("uv_index", mir.uv_index.as_deref()),
         ("pip_index", mir.pip_index.as_deref()),
+        ("goproxy", mir.goproxy.as_deref()),
     ] {
         if v.is_some_and(|v| !env_value_sane(v)) {
             return Err(format!("mirror {what} 值含换行或双引号，拒绝落源"));
@@ -286,6 +295,9 @@ pub fn apply_mirror(m: &ToolManifest, tool: &str, home: &Path) -> Result<(), Str
     }
     if let Some(content) = &mir.cargo_config {
         mirror_report(ensure_cargo_config(content), "cargo config.toml")?;
+    }
+    if let Some(v) = &mir.goproxy {
+        mirror_report(ensure_go_env(v), "go env GOPROXY/GOSUMDB")?;
     }
     Ok(())
 }
@@ -442,6 +454,62 @@ pub fn ensure_cargo_config_in(cargo_home: &Path, content: &str) -> Result<bool, 
 /// 生产入口（cargo）。
 pub fn ensure_cargo_config(content: &str) -> Result<bool, String> {
     ensure_cargo_config_in(&cargo_home_path()?, content)
+}
+
+/// GOENV 文件的行级 upsert（纯函数）：GOPROXY 与 GOSUMDB 两键原位替换或追加，
+/// 其余行（GOTOOLCHAIN 等用户配置）逐字保留——go env 文件常载用户键，整写会毁。
+pub fn go_env_upsert(text: &str, goproxy: &str) -> String {
+    let wants = [
+        ("GOPROXY", goproxy),
+        ("GOSUMDB", "sum.golang.google.cn"),
+    ];
+    let mut out: Vec<String> = Vec::new();
+    let mut seen = [false; 2];
+    for l in text.lines() {
+        let mut replaced = false;
+        for (i, (k, v)) in wants.iter().enumerate() {
+            if l.split_once('=').is_some_and(|(key, _)| key.trim() == *k) {
+                out.push(format!("{k}={v}"));
+                seen[i] = true;
+                replaced = true;
+                break;
+            }
+        }
+        if !replaced {
+            out.push(l.to_string());
+        }
+    }
+    for (i, (k, v)) in wants.iter().enumerate() {
+        if !seen[i] {
+            out.push(format!("{k}={v}"));
+        }
+    }
+    let mut s = out.join("\n");
+    if !s.ends_with('\n') {
+        s.push('\n');
+    }
+    s
+}
+
+/// go 代理落 GOENV 文件（win `%APPDATA%\go\env`、POSIX `~/.config/go/env`，
+/// 即 `go env -w` 的持久位，直写文件不依赖 go 二进制在位；目录注入便于测）。
+pub fn ensure_go_env_in(config_dir: &Path, goproxy: &str) -> Result<bool, String> {
+    let dir = config_dir.join("go");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("建目录失败: {}: {e}", dir.display()))?;
+    let p = dir.join("env");
+    let cur = std::fs::read_to_string(&p).unwrap_or_default();
+    let want = go_env_upsert(&cur, goproxy);
+    if want == cur {
+        return Ok(false);
+    }
+    std::fs::write(&p, want).map_err(|e| format!("写 go env 失败: {}: {e}", p.display()))?;
+    Ok(true)
+}
+
+/// 生产入口（go）。
+pub fn ensure_go_env(goproxy: &str) -> Result<bool, String> {
+    let base = dirs::config_dir().ok_or("无法确定用户配置目录（go env）")?;
+    ensure_go_env_in(&base, goproxy)
 }
 
 /// win `.cmd` 兜底内容（纯函数可测）：`%~dp0` 相对定位（
@@ -730,6 +798,33 @@ mod tests {
         assert!(!env_key_sane("BAD-KEY"));
         assert!(!env_key_sane("K=1"));
         assert!(!env_key_sane(""));
+    }
+
+    /// go 代理语义键：行级 upsert 保用户键、GOSUMDB 配套、幂等。
+    #[test]
+    fn go代理_行级upsert与幂等() -> Result<(), String> {
+        // 纯函数：旧官方值原位换、用户键保留、缺键追加
+        let t1 = go_env_upsert(
+            "GOPROXY=proxy.golang.org,direct
+GOTOOLCHAIN=local
+",
+            "https://goproxy.cn,direct",
+        );
+        assert!(t1.contains("GOPROXY=https://goproxy.cn,direct"));
+        assert!(t1.contains("GOSUMDB=sum.golang.google.cn"), "配套 sumdb 应追加");
+        assert!(t1.contains("GOTOOLCHAIN=local"), "用户键逐字保留");
+        assert_eq!(t1.matches("GOPROXY=").count(), 1);
+        // 幂等：目标态再跑逐字不变
+        assert_eq!(go_env_upsert(&t1, "https://goproxy.cn,direct"), t1);
+        // 落盘：注入目录内容比对幂等
+        let cfg = tempfile::tempdir().map_err(|e| e.to_string())?;
+        assert!(ensure_go_env_in(cfg.path(), "https://goproxy.cn,direct")?, "首次应写");
+        assert!(!ensure_go_env_in(cfg.path(), "https://goproxy.cn,direct")?, "内容一致应跳过");
+        let p = cfg.path().join("go").join("env");
+        let c = std::fs::read_to_string(&p).map_err(|e| e.to_string())?;
+        assert!(c.contains("GOPROXY=https://goproxy.cn,direct"));
+        assert!(c.contains("GOSUMDB=sum.golang.google.cn"));
+        Ok(())
     }
 
     #[test]

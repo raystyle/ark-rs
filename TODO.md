@@ -11,6 +11,7 @@ D43 zig 版本去锁（2026-09-13 立项，用户裁定「不再锁定 zig 版�
 | 任务项 | 进度 | 说明 | 日期 |
 | --- | --- | --- | --- |
 | D43：zig 版本去锁 | 待办 | 引擎三件设计已定（PLAN）；数据面配合项已 herdr 知会 omc（去 pin 四元组、挂 cdn_index_url、cdn_asset_pattern 改 target 键形、exe/bin 占位化、cdn_url 模板退役）；前置：bun 1.4.1 复验已绿（mirror 链闭环）、omc pin 0.3.4 疑未 dispatch 已回执对岸 | 2026-09-13 |
+| D44：下载链反转镜像优先 | 进行中 | download 两条链反转（镜像单次快速首试、官方完整链兜底、锚语义不变）加 goproxy 语义键认领（GOENV 行级 upsert 加配套 GOSUMDB）；版本 1.1.1；对线右侧 codex | 2026-09-13 |
 | D42：运行时源中国镜像统一落 manifest | 已完成 | 全链收官：主体 `d0e6104` 加对线三轮 CONFIRM 修复，**v1.1.0 已发版**（tag CI 三平台绿、双 stable 段 200、WSL self update 到位）；omc 四件数据就绪（manifest mirror 三节 seq 24、rust POSIX 字段、镜像桶 rustup-init、对岸 lint 谓词）；**WSL 验收 A13 六件断言 PASS**（对岸已撤 bootstrap 兜底后仍绿，正实证；A2 node、A16 python、E1/E2 同绿）。收尾复验：bun 1.4.1 三平台 pin 落地后 install 绿且 **mirror 链闭环**（bunfig 由 mirror 节写）；officecli probe 修复生效（1.0.149）；omc 仍解析 v0.3.2（云端 pin 疑未 dispatch，已回执对岸核对）。wsl-verify 其余红项归对岸 deploy 链总台重构（对岸回执确认非 ark 面） | 2026-09-13 |
 | D41：更名 Ark 迁移（运营期） | 已完成 | 四阶段全收官：A/B/C 逐批对线推 main CI 绿；D 文档批加 **v1.0.0 已发版**（tag CI 绿、release 六资产双名同 digest、双 stable 段 200、部署位验收全绿含 replace_exe 首落修复 `ef44915`）；omc 三件批切回执已至（tools.ark 入册 seq 10、deploy 全切 ark、lan-linux 实证通）。余过渡期运营：oma 回执待收、存量机水位观测、停 ome/ 面（段与资产名与 ome-self）待水位清零、oma/omc 存量机升级跟进 | 2026-09-12 |
 | D35/D36：R015 标准定档与管辖边界 | 已完成 | R015 成文（发布/更新/播种三流程唯一权威，互指 R001/R014/S006/R004）；管辖两域分治：ome 自理代码功能发版自更新，清单与资源运营托管 omc（承接形态由 omc 定，本仓流水不撤）；PRD D35/D36、AGENTS 方案索引与边界、R014 六.7、INDEX 挂链 | 2026-09-10 |

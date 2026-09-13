@@ -38,7 +38,7 @@ pub fn sha256_file(path: &Path) -> Result<String, String> {
     Ok(format!("{:X}", hasher.finalize()))
 }
 
-/// 下载资产到缓存并复用：对齐 Save-ReleaseAsset 的缓存三分支。
+/// 下载资产到缓存并复用：对齐 Save-ReleaseAsset 的缓存三分支（cache_reuse 提取共用）。
 /// expected_sha256 为 None 时无校验基准，已有缓存直接复用；force 跳过复用直接重下。
 pub fn download_asset(
     env_root: &Path,
@@ -51,33 +51,8 @@ pub fn download_asset(
     if let Some(dir) = dest.parent() {
         fs::create_dir_all(dir).map_err(|e| format!("创建缓存目录失败: {}: {e}", dir.display()))?;
     }
-
-    if dest.exists() && !force {
-        if let Some(exp) = expected_sha256 {
-            let actual = sha256_file(&dest)?;
-            if actual.eq_ignore_ascii_case(exp) {
-                eprintln!("[OK] 命中缓存（sha256 一致）: {}", dest.display());
-                return Ok(dest);
-            }
-            eprintln!(
-                "[WARN] 缓存 sha256 不匹配，删除后重新下载: {}",
-                dest.display()
-            );
-            fs::remove_file(&dest)
-                .map_err(|e| format!("删除旧缓存失败: {}: {e}", dest.display()))?;
-        } else {
-            let nonempty = fs::metadata(&dest).map(|m| m.len() > 0).unwrap_or(false);
-            if nonempty {
-                eprintln!("[INFO] 已有缓存但无 sha256 基准，复用: {}", dest.display());
-                return Ok(dest);
-            }
-            eprintln!(
-                "[WARN] 缓存为空（视为未完成），删除后重新下载: {}",
-                dest.display()
-            );
-            fs::remove_file(&dest)
-                .map_err(|e| format!("删除空缓存失败: {}: {e}", dest.display()))?;
-        }
+    if let Some(hit) = cache_reuse(&dest, expected_sha256, force)? {
+        return Ok(hit);
     }
 
     download_url(url, &dest)?;
@@ -109,7 +84,7 @@ pub fn download_fresh(env_root: &Path, asset_name: &str, url: &str) -> Result<Pa
     Ok(dest)
 }
 
-// ===================== D08 自建镜像兜底链（2026-09-07，ohmycloud D36 env.ohmygh.com）=====================
+// ===================== D08/D44 镜像优先下载链（D08 兜底 2026-09-07；D44 反转为主通道 2026-09-13，官方成兜底）=====================
 
 /// 自建分发镜像基址（种子终态 69/69，ohmycloud#2）。
 pub const MIRROR_BASE: &str = "https://env.ohmygh.com";
@@ -141,11 +116,13 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
-/// 带镜像回落的资产下载（官方失败回落 env.ohmygh.com）：
-/// - 仅当 expected_sha256 在位（有 catalog pin 锚）才回落：镜像段复用同一锚校验，
-///   无锚不产生无校验下载（信任锚即 pin 的体系闭环）；
-/// - 官方段失败（ureq 三次退避加 curl 兜底耗尽）后清缓存试镜像段一次；
-/// - 镜像也失败才报错，错误信息带双链两段。
+/// 带镜像优先的资产下载（D44 反转，2026-09-13 用户裁定「安装默认走 ohmygh，官方是兜底」）：
+/// - 缓存三分支照常（命中即复用，与渠道无关）；
+/// - 镜像段**单次快速首试**（不退避不 curl：镜像未播该版本是常态而非异常，
+///   404 须秒级回落官方，不能拖满重试链）；
+/// - 镜像失败（未命中 / 网络错 / 锚不符）回落官方完整链（ureq 三次退避加 curl 兜底）；
+/// - 校验锚语义不变：expected_sha256 在位则镜像段同锚校验（锚不符视同镜像失败回落，
+///   CF 陈旧对象被锚拦下）；双链全败才报错，错误信息带两段。
 pub fn download_asset_with_mirror(
     env_root: &Path,
     asset_name: &str,
@@ -155,24 +132,103 @@ pub fn download_asset_with_mirror(
     tool: &str,
     version: &str,
 ) -> Result<PathBuf, String> {
-    let official = download_asset(env_root, asset_name, url, expected_sha256, force);
-    if official.is_ok() || expected_sha256.is_none() {
-        return official;
+    download_asset_with_mirror_urls(
+        env_root,
+        asset_name,
+        url,
+        &mirror_url(tool, version, asset_name),
+        expected_sha256,
+        force,
+    )
+}
+
+/// 上一函数的显式 URL 形态（测试注入不可达地址用，不拼镜像段）。
+fn download_asset_with_mirror_urls(
+    env_root: &Path,
+    asset_name: &str,
+    official_url: &str,
+    mirror_dl_url: &str,
+    expected_sha256: Option<&str>,
+    force: bool,
+) -> Result<PathBuf, String> {
+    let dest = cache_path(env_root, asset_name);
+    if let Some(dir) = dest.parent() {
+        fs::create_dir_all(dir).map_err(|e| format!("创建缓存目录失败: {}: {e}", dir.display()))?;
     }
-    let official_err = official.unwrap_err();
-    let murl = mirror_url(tool, version, asset_name);
+    if let Some(hit) = cache_reuse(&dest, expected_sha256, force)? {
+        return Ok(hit);
+    }
     // CF 缓存击穿：锚值进 query（锚变缓存键变；锚校验兜底语义不变）
     let murl_busted = expected_sha256
-        .map(|sha| with_query(&murl, &format!("v={sha}")))
-        .unwrap_or(murl);
-    eprintln!("[WARN] 官方渠道失败，回落自建镜像: {murl_busted}（{official_err}）");
-    download_asset(env_root, asset_name, &murl_busted, expected_sha256, true).map_err(
-        |mirror_err| {
-            format!(
-                "官方与镜像双链失败\n官方({url}): {official_err}\n镜像({murl_busted}): {mirror_err}"
+        .map(|sha| with_query(mirror_dl_url, &format!("v={sha}")))
+        .unwrap_or_else(|| mirror_dl_url.to_string());
+    match mirror_fetch_once(&dest, &murl_busted, expected_sha256) {
+        Ok(()) => {
+            eprintln!("[OK] 已下载（镜像优先）: {}", dest.display());
+            Ok(dest)
+        }
+        Err(mirror_err) => {
+            eprintln!("[INFO] 镜像未命中或失败，回落官方: {official_url}（{mirror_err}）");
+            download_asset(env_root, asset_name, official_url, expected_sha256, true).map_err(
+                |official_err| {
+                    format!(
+                        "镜像与官方双链失败\n镜像({murl_busted}): {mirror_err}\n官方({official_url}): {official_err}"
+                    )
+                },
             )
-        },
-    )
+        }
+    }
+}
+
+/// 缓存三分支（原 download_asset 前半，提取共用）：命中返回 Some(dest)。
+/// sha 基准在位且不符即删缓存（返回 None 走下载）；无基准且非空复用；空缓存删除。
+fn cache_reuse(dest: &Path, expected_sha256: Option<&str>, force: bool) -> Result<Option<PathBuf>, String> {
+    if !dest.exists() || force {
+        return Ok(None);
+    }
+    if let Some(exp) = expected_sha256 {
+        let actual = sha256_file(dest)?;
+        if actual.eq_ignore_ascii_case(exp) {
+            eprintln!("[OK] 命中缓存（sha256 一致）: {}", dest.display());
+            return Ok(Some(dest.to_path_buf()));
+        }
+        eprintln!("[WARN] 缓存 sha256 不匹配，删除后重新下载: {}", dest.display());
+        fs::remove_file(dest).map_err(|e| format!("删除旧缓存失败: {}: {e}", dest.display()))?;
+    } else {
+        let nonempty = fs::metadata(dest).map(|m| m.len() > 0).unwrap_or(false);
+        if nonempty {
+            eprintln!("[INFO] 已有缓存但无 sha256 基准，复用: {}", dest.display());
+            return Ok(Some(dest.to_path_buf()));
+        }
+        eprintln!("[WARN] 缓存为空（视为未完成），删除后重新下载: {}", dest.display());
+        fs::remove_file(dest).map_err(|e| format!("删除空缓存失败: {}: {e}", dest.display()))?;
+    }
+    Ok(None)
+}
+
+/// 镜像段单次快速下载（D44）：单次 ureq 不退避不 curl，先 .part 再提交；
+/// 锚在位则校验（不符即 Err，视同镜像失败由调用方回落官方）；失败清理不落半截。
+fn mirror_fetch_once(dest: &Path, url: &str, expected_sha256: Option<&str>) -> Result<(), String> {
+    let part = part_path(dest);
+    let _ = fs::remove_file(&part);
+    match download_once(url, &part) {
+        Ok(()) => commit_part(&part, dest)?,
+        Err(e) => {
+            let _ = fs::remove_file(&part);
+            return Err(e);
+        }
+    }
+    if let Some(exp) = expected_sha256 {
+        let actual = sha256_file(dest)?;
+        if !actual.eq_ignore_ascii_case(exp) {
+            let _ = fs::remove_file(dest);
+            return Err(format!(
+                "镜像对象 sha256 与锚不符（已删，回落官方）: 期望 {}，实际 {actual}",
+                exp.to_uppercase()
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// 边车文本解析 sha：标准清单行 `<sha>  <filename>`，取首 token 大写化（纯函数可测）。
@@ -203,11 +259,12 @@ pub fn mirror_sidecar_sha(env_root: &Path, sidecar_url: &str) -> Result<String, 
     parse_sidecar_sha(&text, sidecar_url)
 }
 
-/// 带镜像回落的 latest 段资产下载（D08 第二批，evergreen 引导器：rust / vsbuild）：
-/// - 官方段先走（evergreen 无 pin 锚，缓存三分支照常）；
-/// - 官方失败回落镜像 latest 段，校验锚取同目录 `.sha256` 边车（先边车后资产）：
-///   边车取不到即失败，不产生无校验下载（边车即当段唯一信任锚，沙滚语义）；
-/// - 停滞探测与第一批同规（ureq 超时重试加 curl 兜底由 download_url 一体承载）。
+/// 带镜像优先的 latest 段资产下载（D08 第二批，evergreen 引导器：rust / vsbuild；D44 反转）：
+/// - 缓存三分支照常；
+/// - 镜像 latest 段**首试**：校验锚取同目录 `.sha256` 边车（先边车后资产，边车即当段
+///   唯一信任锚，沙滚语义；资产单次快速下载），任一步失败回落官方；
+/// - 官方段完整链兜底（evergreen 无 pin 锚，官方段无锚裸下与反转前镜像段口径一致）；
+/// - 双链全败才报错，错误信息带两段。
 pub fn download_latest_with_sidecar(
     env_root: &Path,
     asset_name: &str,
@@ -231,26 +288,34 @@ fn download_latest_with_sidecar_urls(
     sidecar_url: &str,
     mirror_dl_url: &str,
 ) -> Result<PathBuf, String> {
-    let official = download_asset(env_root, asset_name, official_url, None, false);
-    if official.is_ok() {
-        return official;
+    let dest = cache_path(env_root, asset_name);
+    if let Some(dir) = dest.parent() {
+        fs::create_dir_all(dir).map_err(|e| format!("创建缓存目录失败: {}: {e}", dir.display()))?;
     }
-    let official_err = official.unwrap_err();
-    eprintln!("[WARN] 官方渠道失败，取镜像边车锚: {sidecar_url}（{official_err}）");
-    let anchor = mirror_sidecar_sha(env_root, sidecar_url).map_err(|sidecar_err| {
-        format!(
-            "官方失败且镜像边车取不到，拒绝无校验下载\n官方({official_url}): {official_err}\n边车({sidecar_url}): {sidecar_err}"
-        )
-    })?;
-    // CF 缓存击穿：锚值进 query（锚变缓存键变；锚校验兜底语义不变）
-    let mirror_busted = with_query(mirror_dl_url, &format!("v={anchor}"));
-    download_asset(env_root, asset_name, &mirror_busted, Some(&anchor), true).map_err(
-        |mirror_err| {
-            format!(
-                "官方与镜像双链失败\n官方({official_url}): {official_err}\n镜像({mirror_busted}): {mirror_err}"
+    if let Some(hit) = cache_reuse(&dest, None, false)? {
+        return Ok(hit);
+    }
+    // 镜像首试：边车锚 → 资产（CF 缓存击穿：锚值进 query）
+    let mirror_step = mirror_sidecar_sha(env_root, sidecar_url).and_then(|anchor| {
+        let mirror_busted = with_query(mirror_dl_url, &format!("v={anchor}"));
+        mirror_fetch_once(&dest, &mirror_busted, Some(&anchor))
+    });
+    match mirror_step {
+        Ok(()) => {
+            eprintln!("[OK] 已下载（镜像优先，边车锚校验）: {}", dest.display());
+            Ok(dest)
+        }
+        Err(mirror_err) => {
+            eprintln!("[INFO] 镜像未命中或失败，回落官方: {official_url}（{mirror_err}）");
+            download_asset(env_root, asset_name, official_url, None, true).map_err(
+                |official_err| {
+                    format!(
+                        "镜像与官方双链失败\n镜像({mirror_dl_url}): {mirror_err}\n官方({official_url}): {official_err}"
+                    )
+                },
             )
-        },
-    )
+        }
+    }
 }
 
 fn part_path(dest: &Path) -> PathBuf {
@@ -487,9 +552,9 @@ mod tests {
         );
     }
 
-    /// 断官方源且边车取不到：拒绝无校验下载（不落资产文件），错误带官方与边车两段。
+    /// D44 反转后双断：镜像段（边车）断→回落官方段断→双链报错（镜像在前官方在后），不落资产。
     #[test]
-    fn dies_断官方源且断边车_拒绝无校验下载() -> Result<(), String> {
+    fn dies_镜像边车断且官方断_双链报错不落资产() -> Result<(), String> {
         let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
         let err = download_latest_with_sidecar_urls(
             dir.path(),
@@ -499,15 +564,35 @@ mod tests {
             "http://127.0.0.1:1/mirror",
         )
         .expect_err("双断应报错");
-        assert!(err.contains("拒绝无校验下载"), "错误应说明拒绝原因: {err}");
-        assert!(
-            err.contains("官方(") && err.contains("边车("),
-            "错误应带两段链: {err}"
-        );
+        assert!(err.contains("镜像与官方双链失败"), "错误应说明双链: {err}");
+        // 镜像在前官方在后（反转后链序）
+        let mi = err.find("镜像(").expect("应含镜像段");
+        let oi = err.find("官方(").expect("应含官方段");
+        assert!(mi < oi, "镜像段应在前: {err}");
         assert!(
             !cache_path(dir.path(), "demo-init.exe").exists(),
             "不应留下未校验资产"
         );
+        Ok(())
+    }
+
+    /// D44 反转：主链镜像段单次失败回落官方段（官方也断→双链报错，镜像在前）。
+    #[test]
+    fn dies_镜像断回落官方也断_双链报错() -> Result<(), String> {
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let err = download_asset_with_mirror_urls(
+            dir.path(),
+            "demo.zip",
+            "http://127.0.0.1:1/official",
+            "http://127.0.0.1:1/mirror",
+            Some("0000000000000000000000000000000000000000000000000000000000000000"),
+            false,
+        )
+        .expect_err("双断应报错");
+        assert!(err.contains("镜像与官方双链失败"), "{err}");
+        let mi = err.find("镜像(").expect("应含镜像段");
+        let oi = err.find("官方(").expect("应含官方段");
+        assert!(mi < oi, "镜像段应在前: {err}");
         Ok(())
     }
 }

@@ -1,5 +1,6 @@
 //! 镜像兜底链真网测试（D08，ARK_TEST_MIRROR=1 才跑否则整体 skip）。
-//! 断官方源场景：官方段 URL 故意不可达，断言回落 env.ohmygh.com 镜像段成功
+//! 镜像优先闸门（D44 反转后）：官方段 URL 故意不可达也不影响（镜像先走不碰官方），
+//! 断言 env.ohmygh.com 镜像段命中成功且 sha 锚一致；官方段仅在镜像失败时兜底。
 //! 且 sha256 与 catalog pin 锚一致（信任锚即 pin 的端到端实证）。
 //! 资产选 zoxide（545KB 小资产，镜像种子 69/69 在位，ohmycloud#2）。
 //! D08 第二批（ohmyenv-rs#7）：evergreen 引导器 latest 段以镜像 `.sha256` 边车为锚
@@ -27,7 +28,7 @@ fn sidecar_oracle(sandbox: &std::path::Path, url: &str) -> TestResult<String> {
 }
 
 #[test]
-fn 断官方源_darwin资产镜像回落且sha与mac_pin一致() -> TestResult<()> {
+fn 镜像优先_darwin资产镜像命中且sha与mac_pin一致() -> TestResult<()> {
     if !gated() {
         eprintln!("skip: ARK_TEST_MIRROR != 1");
         return Ok(());
@@ -56,7 +57,7 @@ fn 断官方源_darwin资产镜像回落且sha与mac_pin一致() -> TestResult<(
 }
 
 #[test]
-fn 断官方源_镜像回落下载且sha与pin一致() -> TestResult<()> {
+fn 镜像优先_下载命中且sha与pin一致() -> TestResult<()> {
     if !gated() {
         eprintln!("skip: ARK_TEST_MIRROR != 1");
         return Ok(());
@@ -85,9 +86,9 @@ fn 断官方源_镜像回落下载且sha与pin一致() -> TestResult<()> {
     Ok(())
 }
 
-/// D08 第二批闸门项（ohmycloud#7 补种后）：zoxide linux 资产断官方源回落，sha 与 linux pin 一致。
+/// D08 第二批闸门项（ohmycloud#7 补种后）：zoxide linux 资产镜像优先命中，sha 与 linux pin 一致。
 #[test]
-fn 断官方源_linux资产镜像回落且sha与linux_pin一致() -> TestResult<()> {
+fn 镜像优先_linux资产镜像命中且sha与linux_pin一致() -> TestResult<()> {
     if !gated() {
         eprintln!("skip: ARK_TEST_MIRROR != 1");
         return Ok(());
@@ -115,9 +116,9 @@ fn 断官方源_linux资产镜像回落且sha与linux_pin一致() -> TestResult<
     Ok(())
 }
 
-/// D08 第二批（ohmyenv-rs#7）：rust 引导器断官方源回落 latest 段，产物 sha 与边车逐字一致。
+/// D08 第二批（ohmyenv-rs#7）：rust 引导器镜像优先命中 latest 段，产物 sha 与边车逐字一致。
 #[test]
-fn 断官方源_rust引导器latest段回落且sha与边车一致() -> TestResult<()> {
+fn 镜像优先_rust引导器latest段命中且sha与边车一致() -> TestResult<()> {
     if !gated() {
         eprintln!("skip: ARK_TEST_MIRROR != 1");
         return Ok(());
@@ -143,9 +144,9 @@ fn 断官方源_rust引导器latest段回落且sha与边车一致() -> TestResul
     Ok(())
 }
 
-/// D08 第二批（ohmyenv-rs#7）：vsbuild 引导器断官方源回落 latest 段，产物 sha 与边车逐字一致。
+/// D08 第二批（ohmyenv-rs#7）：vsbuild 引导器镜像优先命中 latest 段，产物 sha 与边车逐字一致。
 #[test]
-fn 断官方源_vsbuild引导器latest段回落且sha与边车一致() -> TestResult<()> {
+fn 镜像优先_vsbuild引导器latest段命中且sha与边车一致() -> TestResult<()> {
     if !gated() {
         eprintln!("skip: ARK_TEST_MIRROR != 1");
         return Ok(());
@@ -197,7 +198,7 @@ fn ffmpeg双平台资产与边车_在位探测() -> TestResult<()> {
 /// D41 B 后本用例走兼容腿（ome/ 段配 ome-* 兼容名；引擎主读序 ark/ 先的实机面在
 /// diary 记录）。不替换运行中 exe（self_update_release 的替换段不属于下载锚链测面）。
 #[test]
-fn 断官方源_自身dev兼容段边车锚一致() -> TestResult<()> {
+fn 镜像优先_自身dev兼容段边车锚一致() -> TestResult<()> {
     if !gated() {
         eprintln!("skip: ARK_TEST_MIRROR != 1");
         return Ok(());
@@ -236,7 +237,7 @@ fn 断官方源_自身dev兼容段边车锚一致() -> TestResult<()> {
 /// 锚取 `ark/dev/ark-*.sha256` 边车，资产按边车锚经镜像段下载校验；并断言双段同内容
 /// （ark/dev 与 ome/dev 边车锚一致，双写同源实证）。
 #[test]
-fn 断官方源_自身dev主段边车锚一致_双段同内容() -> TestResult<()> {
+fn 镜像优先_自身dev主段边车锚一致_双段同内容() -> TestResult<()> {
     if !gated() {
         eprintln!("skip: ARK_TEST_MIRROR != 1");
         return Ok(());

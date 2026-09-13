@@ -5,23 +5,23 @@
 
 ## 当前目标实施计划
 
-> 当前目标：D43 zig 版本去锁（用户 2026-09-13 裁定「不再锁定 zig 版本」）。
-> zig 条目去 pin 转 latest 滚动；官方版本源 ziglang.org/download/index.json（顶层版本键、
-> per-target tarball 与 shasum）。bun 1.4.1 部署版为同批数据面裁定（对岸已落，复验绿）。
+> 当前目标：D44 下载链反转镜像优先（用户 2026-09-13 裁定「ark 安装默认走 ohmygh，
+> 其他官方渠道是兜底」，令发 1.1.1）；顺领 go `goproxy` 语义键（omc go.mirror 数据先行）。
+> D43 zig 去锁挂起待办（TODO 在案，数据面配合项已知会对岸）。
 
-### 方案骨架：引擎三件
+### 方案骨架
 
-1. **resolve 分支 a 泛化**（`src/resolve.rs` `resolve_cdn_index`）：版本集提取双形态：`versions` 子对象（HashiCorp 形）缺省时顶层对象当版本集（ziglang 形，键过 `version_key` 滤非 semver，`master` 自然滤掉，latest 取 semver 最大）；版本条目双形态：`builds` 数组（HashiCorp：filename 匹配、url 字段、shasums 清单 URL）缺省时按 per-target 对象（ziglang：`cdn_asset_pattern` 匹配 target 键，`tarball` 为资产 URL、`shasum` 为官方 sha 直值）。
-2. **官方 sha 直值锚**：`Resolution` 增 `official_sha256: Option<String>`（各分支构造点补 None）；`checksum::expected_sha256` 官方链最前插入（直值优先于清单与 digest 通道；D08 回落门「有 sha 锚才回落」天然满足，无需镜像 latest 段先行）。
-3. **布局 {version} 占位**：dir/bin/exe 字段支持 `{version}` 占位（zig 版本目录布局 `zig-x86_64-windows-{version}`）。探测面：exe 含占位时 glob 候选（占位转 `*`）取 **semver 最大**（M025 字典序同型教训，复用 `resolve::version_key`/`semver_cmp`）；安装期：`res.version` 直替换（install_dir / bin_dir / 装后验证同源）。
-4. **数据面配合项（omc，已 herdr 知会）**：zig 去三平台 pin 四元组；`cdn_index_url = "https://ziglang.org/download/index.json"`；三平台 `cdn_asset_pattern` 改 target 键形（`^x86_64-windows$` / `^x86_64-linux$` / `^aarch64-macos$`）；exe/bin 加 `{version}` 占位；三平台 `cdn_url` 模板退役（tarball 直取 index）。
+1. **download.rs 两条链反转**：主资产链与 evergreen 边车链改为镜像（env.ohmygh.com）**单次快速首试**（不退避不 curl：镜像未播该版本属常态，须秒级回落）后走官方完整链兜底（ureq 三次退避加 curl）；缓存三分支提取 `cache_reuse` 共用（渠道无关先查缓存）；镜像段失败形态=未命中 404 / 网络错 / 锚不符（CF 陈旧对象被锚拦下即换道）。
+2. **锚语义不变**：expected_sha256（pin / 边车 / digest）照常校验；「有锚才回落」红线改写为「镜像为主、官方兜底、有锚必校验」；错误文案镜像在前官方在后。
+3. **goproxy 语义键**：Mirror 增键，行级 upsert 落 GOENV 文件（win `%APPDATA%\go\env`、POSIX `~/.config/go/env` 即 `go env -w` 持久位，直写不依赖 go 二进制在位），配套 GOSUMDB=sum.golang.google.cn，用户键逐字保留；lint 值校验白名单与 fixtures 补样例。
+4. **文档口径反转**：AGENTS 边界、README 镜像源节、SKILL 语义段与命令行、R015 消费侧、R016 mirror 键表；测试 mirror_fallback 用例改名「镜像优先」语义（行为断言兼容）。
 
 ### 自测面
 
-1. 单测：版本集双形态提取（含 master 滤除与 semver 最大）；per-target 条目 pattern 匹配与 tarball/shasum 取值；`{version}` 占位 glob 探测（多版本目录取 semver 最大）与安装期直替换；official_sha256 优先级。
-2. 真机：Windows `ark query zig`（latest 解析出 ziglang 当前版）、`ark install zig`（zip-dir 版本目录布局 + PATH）幂等二连；WSL 同链路；ziglang.org 断源回落镜像门（有 official_sha256 锚，视对岸镜像桶播种态）。
-3. 对线：实质改动推送前右侧 codex review，回执入 diary。
+1. 单测：镜像单次失败回落官方双断报错（镜像在前）主链与 evergreen 链各一；go env upsert 纯函数（用户键保留、配套 sumdb、幂等）与落盘内容比对；gated 真网（ARK_TEST_MIRROR）镜像优先命中加 sha 锚一致（原回落用例语义兼容改写）。
+2. 真机：WSL `install omc`（pin 锚镜像直装已实证）与 `install bun`（镜像桶命中）走镜像优先链；缓存命中复用不触网回归。
+3. 对线：右侧 codex review（实质改动：download 跨链反转），回执入 diary。
 
 ### 完成定义
 
-- zig 三平台 latest 滚动绿（query/install/update/幂等）；旧 pin 布局存量机升级不破（glob 探测兼容旧版本目录）；门禁四件套绿；对岸数据面 dispatch 后端到端复验。
+- 全量测试绿加 clippy 干净加门禁四件套绿；v1.1.1 tag 推送滚 stable；WSL `self update --stable` 到 1.1.1 后 install 复验走镜像优先；对岸回执。

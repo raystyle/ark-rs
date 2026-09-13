@@ -128,7 +128,7 @@
 | `src\render.rs` | 单一渲染层：stdout 只走 key=value 数据，组标题走 # 注释行 |
 | `src\catalog.rs` | `catalog\tools.toml` 读写、EnvRoot 解析、pin 回写 |
 | `src\resolve.rs` | 版本解析三分支（GitHub REST / cdn 模板 / HashiCorp index） |
-| `src\download.rs` | 资产下载与缓存复用 |
+| `src\download.rs` | 资产下载与缓存复用；D44 反转镜像优先链（env.ohmygh.com 单次快速首试、官方完整链兜底、有锚必校验） |
 | `src\checksum.rs` | sha256 校验与官方校验源 |
 | `src\install.rs` | 安装主编排（幂等、防穿越、验版本、回写） |
 | `src\extract.rs` | 解压/安装九分派 |

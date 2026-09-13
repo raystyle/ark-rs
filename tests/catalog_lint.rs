@@ -150,6 +150,7 @@ fn lint_manifest(dir: &Path, cat: &ark::catalog::Catalog) -> Vec<String> {
                 ("bunfig_registry", mir.bunfig_registry.as_deref()),
                 ("uv_index", mir.uv_index.as_deref()),
                 ("pip_index", mir.pip_index.as_deref()),
+                ("goproxy", mir.goproxy.as_deref()),
             ];
             for (key, val) in url_keys {
                 if val.is_some_and(|v| !ark::manifest::env_value_sane(v)) {

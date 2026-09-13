@@ -86,7 +86,7 @@ ark catalog sync   # 立即从云端刷新（默认 TTL 24h 自动刷新；ARK_C
 
 ## 镜像源
 
-下载官方渠道失败自动回落 env.ohmygh.com 自建镜像；仅当有 sha 锚（catalog pin 或官方清单）才回落，校验不放松。
+**下载默认走 env.ohmygh.com 自建镜像**（D44 反转，2026-09-13 用户裁定：安装默认走 ohmygh，官方渠道是兜底）；镜像未命中或失败秒级回落官方完整链；有 sha 锚（catalog pin、镜像边车或官方清单）必校验，锚不符视同失败回落。
 
 运行时工具族的中国源配置走 manifest `mirror` 节（数据面声明、引擎落源，D42）：fnm 面 FNM_NODE_DIST_MIRROR 与 npm registry（npmmirror）、uv / pip 清华 TUNA 加 python 安装 NJU、bun npmmirror；win 落用户环境变量与各工具原生配置位、POSIX 落 shell rc（profile env 块）与 XDG 配置位。rust 由 rustup 接管模块原生落 rsproxy 全量（三平台：装走 rsproxy rustup-init，RUSTUP_DIST_SERVER / RUSTUP_UPDATE_ROOT 加 cargo config；POSIX 用 `~/.rustup` 与 `~/.cargo` 系统标准位）。幂等：内容一致零重写，存量端 `ark install` / `ark update` 即得。
 

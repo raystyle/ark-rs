@@ -2,6 +2,13 @@
 
 > 版本里程碑。SemVer `vMAJOR.MINOR.PATCH`。
 
+## [1.1.1] - 2026-09-13
+
+patch：**D44 下载链反转镜像优先**（用户裁定「ark 安装默认走 ohmygh，其他官方渠道是兜底」）加 go 代理语义键补位。
+
+- download 反转（D44）：两条链（主资产与 evergreen 边车）反转为 env.ohmygh.com 镜像**单次快速首试**（不退避不 curl：镜像未播该版本属常态，须秒级回落）后走官方完整链兜底（retried 加 curl）；校验锚语义不变（pin/边车/digest 照常，锚不符视同镜像失败回落，CF 陈旧对象被锚拦下）；「有锚才回落」红线改写为「镜像为主、官方兜底、有锚必校验」；覆盖 install/npm-tgz/rustup/vsbuild/selfupdate 全调用面；缓存三分支提取 cache_reuse 共用；错误文案镜像在前官方在后。
+- manifest goproxy 语义键（D44 补位，omc go.mirror 节数据先行）：`goproxy = "https://goproxy.cn,direct"` 行级 upsert 落 GOENV 文件（win `%APPDATA%\go\env`、POSIX `~/.config/go/env`，即 `go env -w` 持久位，直写不依赖 go 二进制在位），配套 GOSUMDB=sum.golang.google.cn，用户键（GOTOOLCHAIN 等）逐字保留；lint 与 fixtures 补 go 节样例。
+
 ## [1.1.0] - 2026-09-13
 
 minor：**D42 运行时源中国镜像统一落 manifest**（用户重投裁定 + 补充裁定）。manifest DSL 扩 mirror 节（数据面声明、引擎落源，不散各端脚本）；rust 接管扩 POSIX。对线 codex 三轮 CONFIRM（六结论全采纳 + 复审残留 + 确认轮收口 env_set 注入面）。omc 数据面四件同批就绪（mirror 三节、rust POSIX 字段、镜像桶 rustup-init、对岸 lint 谓词）。
