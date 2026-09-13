@@ -199,7 +199,11 @@ fn net_probe_targets() -> Vec<(&'static str, String, &'static str)> {
             "https://aka.ms/vs/17/release/vs_buildtools.exe".to_string(),
             "vsbuild 引导器（aka.ms）",
         ),
-        ("net-rsproxy", "https://rsproxy.cn".to_string(), "rust 工具链中国镜像源"),
+        (
+            "net-rsproxy",
+            "https://rsproxy.cn".to_string(),
+            "rust 工具链中国镜像源",
+        ),
         (
             "net-goproxy-cn",
             "https://goproxy.cn".to_string(),
@@ -210,9 +214,17 @@ fn net_probe_targets() -> Vec<(&'static str, String, &'static str)> {
             "https://registry.npmmirror.com".to_string(),
             "bun npm 中国镜像源（bunfig）",
         ),
-        ("net-go-dev", "https://go.dev".to_string(), "go 官方下载（go.dev/dl）"),
+        (
+            "net-go-dev",
+            "https://go.dev".to_string(),
+            "go 官方下载（go.dev/dl）",
+        ),
         ("net-xai", "https://x.ai".to_string(), "grok 官方 CDN"),
-        ("net-ziglang", "https://ziglang.org".to_string(), "zig 官方下载"),
+        (
+            "net-ziglang",
+            "https://ziglang.org".to_string(),
+            "zig 官方下载",
+        ),
         (
             "net-docker",
             "https://download.docker.com".to_string(),
@@ -363,7 +375,7 @@ fn config_health(srows: &[StatusRow], env_root: &Path) -> Vec<DoctorRow> {
             "ark heal bunfig",
         ));
     }
-    // goproxy.cn（heal_goproxy 目标态：Windows 由 go env -w 管理，POSIX 配置文件）
+    // goproxy.cn（heal_goproxy 目标态：Windows 走 GOENV 文件直写（D44 收编），POSIX 配置文件）
     if installed("go") {
         let ok = if cfg!(windows) {
             std::process::Command::new("go")

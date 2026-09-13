@@ -597,6 +597,35 @@ mod tests {
         Ok(())
     }
 
+    /// D44 对线 F1/G3：无锚且镜像版本段边车取不到 → 只走官方（不走镜像资产段）。
+    /// 判据：错误串不含「镜像(」资产段、含官方 URL、不落资产文件。
+    #[test]
+    fn dies_无锚且边车断_只走官方不落资产() -> Result<(), String> {
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let err = download_asset_with_mirror_urls(
+            dir.path(),
+            "noanchor.zip",
+            "http://127.0.0.1:1/official",
+            "http://127.0.0.1:1/mirror",
+            None,
+            false,
+        )
+        .expect_err("双断应报错");
+        assert!(
+            !err.contains("镜像("),
+            "无锚且边车断不得走镜像资产段（无校验下载门）: {err}"
+        );
+        assert!(
+            err.contains("http://127.0.0.1:1/official"),
+            "应含官方段: {err}"
+        );
+        assert!(
+            !cache_path(dir.path(), "noanchor.zip").exists(),
+            "不应留下未校验资产"
+        );
+        Ok(())
+    }
+
     /// D44 反转：主链镜像段单次失败回落官方段（官方也断→双链报错，镜像在前）。
     #[test]
     fn dies_镜像断回落官方也断_双链报错() -> Result<(), String> {

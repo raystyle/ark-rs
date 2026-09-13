@@ -25,7 +25,7 @@ enum HealAction {
     Keys,
     /// bunfig npmmirror 镜像（heal-mirror.py 移植）
     MirrorBunfig,
-    /// go goproxy.cn 镜像（POSIX ~/.config/go/env；Windows 由 go env -w 管理）
+    /// go goproxy.cn 镜像（GOENV 文件 upsert，D44 委托 manifest 单一权威）
     MirrorGoproxy,
     /// 平台专列别名（mac-* 归一普通键）
     Alias(&'static str),
@@ -729,7 +729,6 @@ pub fn heal_bunfig(home: &Path) -> Result<bool, String> {
     crate::manifest::ensure_bunfig(home, "https://registry.npmmirror.com/")
 }
 
-/// Windows：`go env -w GOPROXY=...`（与 doctor config-goproxy 同源）。
 #[cfg(test)]
 mod tests {
     use super::*;

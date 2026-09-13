@@ -307,13 +307,29 @@ fn install_compose_plugin(env_root: &Path) -> Result<(), String> {
     }
     let url = COMPOSE_URL.replace("{ver}", COMPOSE_VERSION);
     let sha_url = format!("{url}.sha256");
-    // compose sha 清单每次取新（校验清单不复用缓存）
-    let sha_file =
-        download::download_fresh(env_root, &format!("{COMPOSE_ASSET}.sha256"), &sha_url)?;
+    // compose sha 清单每次取新（force 跳缓存复用）；D44 对线 G2：镜像优先链统一
+    // （镜像未播 compose 即秒回落官方，无静默例外）
+    let sha_file = download::download_asset_with_mirror(
+        env_root,
+        &format!("{COMPOSE_ASSET}.sha256"),
+        &sha_url,
+        None,
+        true,
+        "docker-compose",
+        "latest",
+    )?;
     let sha_text =
         std::fs::read_to_string(&sha_file).map_err(|e| format!("读 sha 清单失败: {e}"))?;
     let sha = extract_sha64(&sha_text)?;
-    let exe = download::download_asset(env_root, COMPOSE_ASSET, &url, Some(&sha), false)?;
+    let exe = download::download_asset_with_mirror(
+        env_root,
+        COMPOSE_ASSET,
+        &url,
+        Some(&sha),
+        false,
+        "docker-compose",
+        "latest",
+    )?;
     std::fs::copy(&exe, &dest).map_err(|e| format!("落插件失败: {e}"))?;
     eprintln!("[OK] compose 插件就绪: {}", dest.display());
     Ok(())

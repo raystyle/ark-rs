@@ -504,15 +504,21 @@ pub fn go_env_upsert(text: &str, goproxy: &str) -> String {
 /// go 代理落 GOENV 文件（win `%APPDATA%\go\env`、POSIX `~/.config/go/env`，
 /// 即 `go env -w` 的持久位，直写文件不依赖 go 二进制在位；目录注入便于测）。
 pub fn ensure_go_env_in(config_dir: &Path, goproxy: &str) -> Result<bool, String> {
-    let dir = config_dir.join("go");
-    std::fs::create_dir_all(&dir).map_err(|e| format!("建目录失败: {}: {e}", dir.display()))?;
-    let p = dir.join("env");
-    let cur = std::fs::read_to_string(&p).unwrap_or_default();
+    ensure_go_env_file(&config_dir.join("go").join("env"), goproxy)
+}
+
+/// GOENV 文件直写（对线 G1）：path 即目标文件本身（GOENV 自定义值就是文件路径，
+/// 不得再拼目录层级）；内容比对幂等。
+pub fn ensure_go_env_file(path: &Path, goproxy: &str) -> Result<bool, String> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("建目录失败: {}: {e}", dir.display()))?;
+    }
+    let cur = std::fs::read_to_string(path).unwrap_or_default();
     let want = go_env_upsert(&cur, goproxy);
     if want == cur {
         return Ok(false);
     }
-    std::fs::write(&p, want).map_err(|e| format!("写 go env 失败: {}: {e}", p.display()))?;
+    std::fs::write(path, want).map_err(|e| format!("写 go env 失败: {}: {e}", path.display()))?;
     Ok(true)
 }
 
@@ -529,8 +535,7 @@ pub fn ensure_go_env(goproxy: &str) -> Result<bool, String> {
             return Ok(false);
         }
         let p = crate::platform::expand_install_path(&crate::platform::expand_env_vars(&v));
-        let dir = p.parent().unwrap_or(&p).to_path_buf();
-        return ensure_go_env_in(&dir, goproxy);
+        return ensure_go_env_file(&p, goproxy);
     }
     let base = dirs::config_dir().ok_or("无法确定用户配置目录（go env）")?;
     ensure_go_env_in(&base, goproxy)
@@ -906,6 +911,31 @@ GOTOOLCHAIN=local
         let c = std::fs::read_to_string(&p).map_err(|e| e.to_string())?;
         assert!(c.contains("GOPROXY=https://goproxy.cn,direct"));
         assert!(c.contains("GOSUMDB=sum.golang.google.cn"));
+        Ok(())
+    }
+
+    /// GOENV 自定义路径即文件本身（对线 G1）：写的就是该文件，不再拼目录层级。
+    #[test]
+    fn go代理_goenv自定义路径直写该文件() -> Result<(), String> {
+        let cfg = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let custom = cfg.path().join("dotfiles").join("goenv");
+        assert!(
+            ensure_go_env_file(&custom, "https://goproxy.cn,direct")?,
+            "首写应报 true"
+        );
+        let c = std::fs::read_to_string(&custom).map_err(|e| e.to_string())?;
+        assert!(
+            c.contains("GOPROXY=https://goproxy.cn,direct"),
+            "写的正是自定义文件本身"
+        );
+        assert!(
+            !cfg.path().join("dotfiles").join("go").exists(),
+            "不得多拼 go/env 层级"
+        );
+        assert!(
+            !ensure_go_env_file(&custom, "https://goproxy.cn,direct")?,
+            "幂等"
+        );
         Ok(())
     }
 
