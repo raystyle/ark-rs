@@ -164,7 +164,7 @@ fn install_windows(def: &Tool, env_root: &Path, configure: bool) -> Result<Insta
     let had_rustc = toolver::installed_version(&rustc, def).is_some();
     if !had_rustc {
         // 永续引导器：rsproxy 直链无版本无官方 sha（evergreen 语义）；
-        // 官方失败回落镜像 latest 段，边车 .sha256 即信任锚（D08 第二批）
+        // 镜像优先 latest 段（D44），边车 .sha256 即信任锚，未命中回落官方（D08 第二批）
         let init = download::download_latest_with_sidecar(env_root, INIT_EXE, url, "rust")?;
         eprintln!("[INFO] 运行 rustup-init（stable / x86_64-pc-windows-msvc）...");
         let status = Command::new(&init)

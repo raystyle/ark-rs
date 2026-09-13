@@ -154,7 +154,10 @@ pub fn load(catalog: &Path) -> Result<ManifestFile, String> {
     if !path.exists() {
         return Ok(ManifestFile::default());
     }
-    parse(&std::fs::read_to_string(&path).map_err(|e| format!("读 manifest 失败: {}: {e}", path.display()))?)
+    parse(
+        &std::fs::read_to_string(&path)
+            .map_err(|e| format!("读 manifest 失败: {}: {e}", path.display()))?,
+    )
 }
 
 /// 解析（纯函数可测；反序列化走 toml_edit serde feature，零新增依赖）。
@@ -190,7 +193,10 @@ pub fn platform_covered(pi: &PostInstall) -> bool {
     } else {
         (pi.linux.is_some(), "linux")
     };
-    has || pi.skip.as_ref().is_some_and(|s| s.iter().any(|p| p == name))
+    has || pi
+        .skip
+        .as_ref()
+        .is_some_and(|s| s.iter().any(|p| p == name))
 }
 
 /// L1：应用用户级环境变量（逐键幂等）。键值先过形态校验（与 mirror 同一红线：
@@ -225,7 +231,9 @@ pub fn env_value_sane(v: &str) -> bool {
 /// 环境写入面键形态校验：标识符形态（防键里带 `=` 或元字符破坏 export 行）。lint 同规则复用。
 pub fn env_key_sane(k: &str) -> bool {
     !k.is_empty()
-        && k.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && k.chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
         && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
@@ -399,7 +407,11 @@ pub fn pip_conf_content(url: &str) -> String {
 
 /// pip 配置文件名（win=pip.ini、POSIX=pip.conf；pip 各平台原生发现位）。
 pub fn pip_conf_name() -> &'static str {
-    if cfg!(windows) { "pip.ini" } else { "pip.conf" }
+    if cfg!(windows) {
+        "pip.ini"
+    } else {
+        "pip.conf"
+    }
 }
 
 /// pip index 落用户配置目录下 `pip/`（目录注入便于测）。返回是否写入。
@@ -447,7 +459,8 @@ pub fn ensure_cargo_config_in(cargo_home: &Path, content: &str) -> Result<bool, 
     if cur == content {
         return Ok(false);
     }
-    std::fs::write(&p, content).map_err(|e| format!("写 cargo config 失败: {}: {e}", p.display()))?;
+    std::fs::write(&p, content)
+        .map_err(|e| format!("写 cargo config 失败: {}: {e}", p.display()))?;
     Ok(true)
 }
 
@@ -459,10 +472,7 @@ pub fn ensure_cargo_config(content: &str) -> Result<bool, String> {
 /// GOENV 文件的行级 upsert（纯函数）：GOPROXY 与 GOSUMDB 两键原位替换或追加，
 /// 其余行（GOTOOLCHAIN 等用户配置）逐字保留——go env 文件常载用户键，整写会毁。
 pub fn go_env_upsert(text: &str, goproxy: &str) -> String {
-    let wants = [
-        ("GOPROXY", goproxy),
-        ("GOSUMDB", "sum.golang.google.cn"),
-    ];
+    let wants = [("GOPROXY", goproxy), ("GOSUMDB", "sum.golang.google.cn")];
     let mut out: Vec<String> = Vec::new();
     let mut seen = [false; 2];
     for l in text.lines() {
@@ -506,8 +516,22 @@ pub fn ensure_go_env_in(config_dir: &Path, goproxy: &str) -> Result<bool, String
     Ok(true)
 }
 
-/// 生产入口（go）。
+/// 生产入口（go）。GOENV 尊重（对线 F7）：进程/用户级 `GOENV` 设 `off` 时跳过文件面
+/// （不落默认位不误报已写）；设自定义路径时写该路径；缺省走 config_dir 平台位。
+/// GOSUMDB 配套为引擎统一目标态（会覆盖用户自定义值，与 heal 同款权衡，R016 已注）。
 pub fn ensure_go_env(goproxy: &str) -> Result<bool, String> {
+    let override_path = std::env::var("GOENV")
+        .ok()
+        .or_else(|| crate::platform::get_user_env_var("GOENV").ok().flatten());
+    if let Some(v) = override_path {
+        if v.eq_ignore_ascii_case("off") {
+            eprintln!("[INFO] GOENV=off：go env 文件面跳过（GOPROXY/GOSUMDB 不写）");
+            return Ok(false);
+        }
+        let p = crate::platform::expand_install_path(&crate::platform::expand_env_vars(&v));
+        let dir = p.parent().unwrap_or(&p).to_path_buf();
+        return ensure_go_env_in(&dir, goproxy);
+    }
     let base = dirs::config_dir().ok_or("无法确定用户配置目录（go env）")?;
     ensure_go_env_in(&base, goproxy)
 }
@@ -525,7 +549,10 @@ pub fn apply_shims(m: &ToolManifest, bin_dir: &Path) -> Result<(), String> {
     let Some(shims) = &m.shims else { return Ok(()) };
     for (alias, source) in shims {
         let (src, dst) = if cfg!(windows) {
-            (bin_dir.join(format!("{source}.exe")), bin_dir.join(format!("{alias}.exe")))
+            (
+                bin_dir.join(format!("{source}.exe")),
+                bin_dir.join(format!("{alias}.exe")),
+            )
         } else {
             (bin_dir.join(source), bin_dir.join(alias))
         };
@@ -573,7 +600,9 @@ fn run_post_install_with_timeout(
     tool: &str,
     timeout: std::time::Duration,
 ) -> Result<(), String> {
-    let Some(pi) = &m.post_install else { return Ok(()) };
+    let Some(pi) = &m.post_install else {
+        return Ok(());
+    };
     if !platform_covered(pi) {
         return Err(format!(
             "{tool} post_install 未覆盖当前平台（无命令且未声明 skip，R016 三键齐备）"
@@ -648,7 +677,11 @@ fn run_post_install_with_timeout(
                 "{tool} post_install 失败（{}）: 退出码 {:?}{}（R016：只报不回滚）",
                 argv.join(" "),
                 status.code(),
-                if tail_s.is_empty() { String::new() } else { format!("，尾行: {tail_s}") }
+                if tail_s.is_empty() {
+                    String::new()
+                } else {
+                    format!("，尾行: {tail_s}")
+                }
             ));
         }
     }
@@ -701,7 +734,10 @@ mod tests {
         let uv = &f.manifest["uv"];
         let um = uv.mirror.as_ref().unwrap();
         assert!(um.uv_index.is_some() && um.pip_index.is_some());
-        assert_eq!(um.env_unset.as_deref(), Some(["UV_INDEX_URL".to_string()].as_slice()));
+        assert_eq!(
+            um.env_unset.as_deref(),
+            Some(["UV_INDEX_URL".to_string()].as_slice())
+        );
         // cargo_config 空表存在但无值：全键空应省略（lint 依据）
         let rust_mir = f.manifest["rust"].mirror.as_ref().unwrap();
         assert!(rust_mir.is_empty_conf(), "仅空表无值应判空节");
@@ -712,13 +748,23 @@ mod tests {
     #[test]
     fn npmrc_upsert_行级替换与保留() {
         // 无 registry 行：追加文末，原有行不动
-        let t1 = npmrc_upsert("//registry.npmjs.org/:_authToken=secret\n", "https://registry.npmmirror.com");
+        let t1 = npmrc_upsert(
+            "//registry.npmjs.org/:_authToken=secret\n",
+            "https://registry.npmmirror.com",
+        );
         assert!(t1.contains("registry=https://registry.npmmirror.com"));
         assert!(t1.contains("_authToken=secret"), "认证行必须保留");
         // 有 registry 行（带空白与大小写变体）：原位替换，不追加第二条
-        let t2 = npmrc_upsert("registry = https://registry.npmjs.org/\n_authToken=x\n", "https://registry.npmmirror.com");
+        let t2 = npmrc_upsert(
+            "registry = https://registry.npmjs.org/\n_authToken=x\n",
+            "https://registry.npmmirror.com",
+        );
         assert_eq!(
-            t2.lines().filter(|l| l.split_once('=').is_some_and(|(k, _)| k.trim() == "registry")).count(),
+            t2.lines()
+                .filter(|l| l
+                    .split_once('=')
+                    .is_some_and(|(k, _)| k.trim() == "registry"))
+                .count(),
             1,
             "只应有一条 registry 赋值行: {t2}"
         );
@@ -737,23 +783,42 @@ mod tests {
     #[test]
     fn npmrc_落盘幂等() -> Result<(), String> {
         let home = tempfile::tempdir().map_err(|e| e.to_string())?;
-        assert!(ensure_npmrc(home.path(), "https://registry.npmmirror.com")?, "首次应写");
+        assert!(
+            ensure_npmrc(home.path(), "https://registry.npmmirror.com")?,
+            "首次应写"
+        );
         let c1 = std::fs::read_to_string(home.path().join(".npmrc")).map_err(|e| e.to_string())?;
         assert_eq!(c1, "registry=https://registry.npmmirror.com\n");
-        assert!(!ensure_npmrc(home.path(), "https://registry.npmmirror.com")?, "同值应跳过");
-        assert!(ensure_npmrc(home.path(), "https://registry.example.com")?, "换源应重写");
+        assert!(
+            !ensure_npmrc(home.path(), "https://registry.npmmirror.com")?,
+            "同值应跳过"
+        );
+        assert!(
+            ensure_npmrc(home.path(), "https://registry.example.com")?,
+            "换源应重写"
+        );
         Ok(())
     }
 
     #[test]
     fn bunfig_尾斜杠等价与幂等() -> Result<(), String> {
         let home = tempfile::tempdir().map_err(|e| e.to_string())?;
-        assert!(ensure_bunfig(home.path(), "https://registry.npmmirror.com/")?, "首次应写");
+        assert!(
+            ensure_bunfig(home.path(), "https://registry.npmmirror.com/")?,
+            "首次应写"
+        );
         // 无尾斜杠同源 URL：不应来回重写（npmmirror 两写法等价）
-        assert!(!ensure_bunfig(home.path(), "https://registry.npmmirror.com")?, "尾斜杠等价应跳过");
+        assert!(
+            !ensure_bunfig(home.path(), "https://registry.npmmirror.com")?,
+            "尾斜杠等价应跳过"
+        );
         // 无镜像标记的旧文件重写（heal-mirror 同语义）
-        std::fs::write(home.path().join(".bunfig.toml"), "# 用户自定义\n").map_err(|e| e.to_string())?;
-        assert!(ensure_bunfig(home.path(), "https://registry.npmmirror.com/")?);
+        std::fs::write(home.path().join(".bunfig.toml"), "# 用户自定义\n")
+            .map_err(|e| e.to_string())?;
+        assert!(ensure_bunfig(
+            home.path(),
+            "https://registry.npmmirror.com/"
+        )?);
         Ok(())
     }
 
@@ -781,15 +846,23 @@ mod tests {
         let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
         let content = "[source.crates-io]\nreplace-with = \"rsproxy\"\n";
         assert!(ensure_cargo_config_in(dir.path(), content)?);
-        assert!(!ensure_cargo_config_in(dir.path(), content)?, "内容一致应跳过");
-        assert!(ensure_cargo_config_in(dir.path(), "[other]\n")?, "内容漂移应重写");
+        assert!(
+            !ensure_cargo_config_in(dir.path(), content)?,
+            "内容一致应跳过"
+        );
+        assert!(
+            ensure_cargo_config_in(dir.path(), "[other]\n")?,
+            "内容漂移应重写"
+        );
         Ok(())
     }
 
     /// 对线 R5：值与键形态校验（注入面；TOML 转义可产出真实换行）。
     #[test]
     fn mirror值键形态_校验规则() {
-        assert!(env_value_sane("https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"));
+        assert!(env_value_sane(
+            "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"
+        ));
         assert!(!env_value_sane("https://x/\nregistry=evil"), "换行拒");
         assert!(!env_value_sane("say \"hi\""), "双引号拒");
         assert!(!env_value_sane("crlf\r\n"), "\\r 拒");
@@ -811,15 +884,24 @@ GOTOOLCHAIN=local
             "https://goproxy.cn,direct",
         );
         assert!(t1.contains("GOPROXY=https://goproxy.cn,direct"));
-        assert!(t1.contains("GOSUMDB=sum.golang.google.cn"), "配套 sumdb 应追加");
+        assert!(
+            t1.contains("GOSUMDB=sum.golang.google.cn"),
+            "配套 sumdb 应追加"
+        );
         assert!(t1.contains("GOTOOLCHAIN=local"), "用户键逐字保留");
         assert_eq!(t1.matches("GOPROXY=").count(), 1);
         // 幂等：目标态再跑逐字不变
         assert_eq!(go_env_upsert(&t1, "https://goproxy.cn,direct"), t1);
         // 落盘：注入目录内容比对幂等
         let cfg = tempfile::tempdir().map_err(|e| e.to_string())?;
-        assert!(ensure_go_env_in(cfg.path(), "https://goproxy.cn,direct")?, "首次应写");
-        assert!(!ensure_go_env_in(cfg.path(), "https://goproxy.cn,direct")?, "内容一致应跳过");
+        assert!(
+            ensure_go_env_in(cfg.path(), "https://goproxy.cn,direct")?,
+            "首次应写"
+        );
+        assert!(
+            !ensure_go_env_in(cfg.path(), "https://goproxy.cn,direct")?,
+            "内容一致应跳过"
+        );
         let p = cfg.path().join("go").join("env");
         let c = std::fs::read_to_string(&p).map_err(|e| e.to_string())?;
         assert!(c.contains("GOPROXY=https://goproxy.cn,direct"));
@@ -831,7 +913,11 @@ GOTOOLCHAIN=local
     fn 平台覆盖与选键() {
         // 当前平台的命令键（平台自适应，避免 win 视角写死）
         let cur = if cfg!(windows) {
-            vec![vec!["cmd".to_string(), "/c".to_string(), "echo".to_string()]]
+            vec![vec![
+                "cmd".to_string(),
+                "/c".to_string(),
+                "echo".to_string(),
+            ]]
         } else {
             vec![vec!["echo".to_string()]]
         };
@@ -849,7 +935,13 @@ GOTOOLCHAIN=local
         assert!(!platform_covered(&empty), "全空未覆盖");
         // skip 覆盖路径：当前平台无命令但显式 skip
         let mut skipped = PostInstall::default();
-        let cur_name = if cfg!(windows) { "win" } else if cfg!(target_os = "macos") { "mac" } else { "linux" };
+        let cur_name = if cfg!(windows) {
+            "win"
+        } else if cfg!(target_os = "macos") {
+            "mac"
+        } else {
+            "linux"
+        };
         skipped.skip = Some(vec![cur_name.to_string()]);
         assert!(platform_covered(&skipped), "显式 skip 即覆盖");
         assert_eq!(platform_commands(&skipped).count(), 0);
@@ -858,16 +950,24 @@ GOTOOLCHAIN=local
     #[test]
     fn shims_生成与幂等() {
         let dir = tempfile::tempdir().expect("临时目录");
-        let src = dir.path().join(if cfg!(windows) { "bun.exe" } else { "bun" });
+        let src = dir
+            .path()
+            .join(if cfg!(windows) { "bun.exe" } else { "bun" });
         std::fs::write(&src, b"fake").expect("写源");
         let mut m = ToolManifest::default();
         m.shims = Some([("bunx".to_string(), "bun".to_string())].into());
         apply_shims(&m, dir.path()).expect("应成功");
-        let dst = dir.path().join(if cfg!(windows) { "bunx.exe" } else { "bunx" });
+        let dst = dir
+            .path()
+            .join(if cfg!(windows) { "bunx.exe" } else { "bunx" });
         assert!(dst.exists(), "别名应生成");
         // 链接而非拷贝：改源即见新内容（硬链接与符号链接同判，M016 平台自适应）
         std::fs::write(&src, b"changed").expect("改源");
-        assert_eq!(std::fs::read(&dst).expect("读别名"), b"changed", "别名应与源同体");
+        assert_eq!(
+            std::fs::read(&dst).expect("读别名"),
+            b"changed",
+            "别名应与源同体"
+        );
         #[cfg(not(windows))]
         assert_eq!(
             std::fs::read_link(&dst).expect("应为符号链接"),
@@ -881,7 +981,12 @@ GOTOOLCHAIN=local
     fn post_install_成功失败与覆盖缺失() {
         // 当前平台自适应成功命令（win=cmd /c echo、POSIX=echo）
         let ok = if cfg!(windows) {
-            vec!["cmd".to_string(), "/c".to_string(), "echo".to_string(), "ome-ok".to_string()]
+            vec![
+                "cmd".to_string(),
+                "/c".to_string(),
+                "echo".to_string(),
+                "ome-ok".to_string(),
+            ]
         } else {
             vec!["echo".to_string(), "ome-ok".to_string()]
         };
@@ -929,7 +1034,12 @@ GOTOOLCHAIN=local
         );
         let path = big_file.display().to_string();
         let big = if cfg!(windows) {
-            vec!["cmd".to_string(), "/c".to_string(), "type".to_string(), path]
+            vec![
+                "cmd".to_string(),
+                "/c".to_string(),
+                "type".to_string(),
+                path,
+            ]
         } else {
             vec!["cat".to_string(), path]
         };
@@ -940,9 +1050,17 @@ GOTOOLCHAIN=local
             .expect("大输出应抽干不阻塞");
         // 失败路径：非零退出码加尾行（退出码与内容都进报告）
         let failing = if cfg!(windows) {
-            vec!["cmd".to_string(), "/c".to_string(), "echo boom& exit /b 7".to_string()]
+            vec![
+                "cmd".to_string(),
+                "/c".to_string(),
+                "echo boom& exit /b 7".to_string(),
+            ]
         } else {
-            vec!["sh".to_string(), "-c".to_string(), "echo boom; exit 7".to_string()]
+            vec![
+                "sh".to_string(),
+                "-c".to_string(),
+                "echo boom; exit 7".to_string(),
+            ]
         };
         let mut bad = ToolManifest::default();
         bad.post_install = Some(pi_for(failing));
@@ -956,7 +1074,11 @@ GOTOOLCHAIN=local
     fn post_install超时即杀进程() {
         // 短超时注入跑杀进程路径（真 300s 不可测）：应快速返回超时而非等命令自然结束
         let slow = if cfg!(windows) {
-            vec!["cmd".to_string(), "/c".to_string(), "ping -n 20 127.0.0.1".to_string()]
+            vec![
+                "cmd".to_string(),
+                "/c".to_string(),
+                "ping -n 20 127.0.0.1".to_string(),
+            ]
         } else {
             vec!["sh".to_string(), "-c".to_string(), "sleep 20".to_string()]
         };

@@ -473,16 +473,12 @@ fn run_def(
             };
             if dry_run {
                 row.result = "dry-run".to_string();
-                row.detail.push(if cfg!(windows) {
-                    "go env -w GOPROXY=goproxy.cn".to_string()
-                } else {
-                    "写 ~/.config/go/env goproxy.cn 镜像".to_string()
-                });
+                row.detail
+                    .push("GOENV 文件 upsert GOPROXY/GOSUMDB（goproxy.cn）".to_string());
             } else {
-                #[cfg(windows)]
-                let changed = heal_goproxy_windows()?;
-                #[cfg(not(windows))]
-                let changed = heal_goproxy(home)?;
+                // D44 对线 F2：写语义单一权威在 manifest mirror 面（heal 委托，win 同改
+                // 文件直写不依赖 go 在位；整写毁用户键的旧语义退役）
+                let changed = crate::manifest::ensure_go_env("https://goproxy.cn,direct")?;
                 row.result = if changed { "healed" } else { "ok" }.to_string();
                 row.detail.push(format!("goproxy: {}", row.result));
             }
@@ -734,48 +730,6 @@ pub fn heal_bunfig(home: &Path) -> Result<bool, String> {
 }
 
 /// Windows：`go env -w GOPROXY=...`（与 doctor config-goproxy 同源）。
-#[cfg(windows)]
-fn heal_goproxy_windows() -> Result<bool, String> {
-    let probe = std::process::Command::new("go")
-        .args(["env", "GOPROXY"])
-        .output();
-    if let Ok(o) = probe {
-        if String::from_utf8_lossy(&o.stdout).contains("goproxy.cn") {
-            return Ok(false);
-        }
-    }
-    let status = std::process::Command::new("go")
-        .args([
-            "env",
-            "-w",
-            "GOPROXY=https://goproxy.cn,direct",
-            "GOSUMDB=sum.golang.google.cn",
-        ])
-        .status()
-        .map_err(|e| format!("go env -w 启动失败: {e}"))?;
-    if !status.success() {
-        return Err(format!(
-            "go env -w 失败 exit={}",
-            status.code().unwrap_or(-1)
-        ));
-    }
-    Ok(true)
-}
-
-/// go goproxy.cn：~/.config/go/env 含 goproxy.cn 标记则不重写（POSIX 文件；Windows 走 go env -w）。
-pub fn heal_goproxy(home: &Path) -> Result<bool, String> {
-    let dir = home.join(".config").join("go");
-    std::fs::create_dir_all(&dir).map_err(|e| format!("创建目录失败: {}: {e}", dir.display()))?;
-    let env = dir.join("env");
-    let want = "GO111MODULE=on\nGOPROXY=https://goproxy.cn,direct\nGOSUMDB=sum.golang.google.cn\n";
-    let content = std::fs::read_to_string(&env).unwrap_or_default();
-    if env.exists() && content.contains("goproxy.cn") {
-        return Ok(false);
-    }
-    std::fs::write(&env, want).map_err(|e| format!("写 go env 失败: {}: {e}", env.display()))?;
-    Ok(true)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -869,17 +823,7 @@ mod tests {
         Ok(())
     }
 
-    /// goproxy：缺文件写入、含 goproxy.cn 标记跳过。
-    #[test]
-    fn goproxy_缺文件写入与幂等() -> Result<(), String> {
-        let home = tempfile::tempdir().map_err(|e| e.to_string())?;
-        assert!(heal_goproxy(home.path())?);
-        let env = home.path().join(".config").join("go").join("env");
-        let content = std::fs::read_to_string(&env).map_err(|e| e.to_string())?;
-        assert!(content.contains("GOPROXY=https://goproxy.cn,direct"));
-        assert!(!heal_goproxy(home.path())?);
-        Ok(())
-    }
+    // goproxy 写语义测试随实现收编 manifest.rs（D44 对线 F2：heal 纯委托）。
 
     /// 密钥载体（POSIX）：env.sh 创建、内容旧重写、rc 挂钩与幂等。
     #[cfg(not(windows))]

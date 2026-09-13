@@ -290,8 +290,10 @@ fn manifest_env_set值形态红灯() {
     assert!(errs.iter().any(|e| e.contains("bad key")), "{errs:?}");
     assert!(!errs.iter().any(|e| e.contains("a:") || e.contains("GOOD_KEY")), "干净节不应报: {errs:?}");
     // 引擎面同拒：坏值在写入前硬错（校验先于任何 set_user_env_var，单测可直接跑）
-    let mut m = ark::manifest::ToolManifest::default();
-    m.env_set = Some([("EVIL".to_string(), "v\ninjected=1".to_string())].into());
+    let m = ark::manifest::ToolManifest {
+        env_set: Some([("EVIL".to_string(), "v\ninjected=1".to_string())].into()),
+        ..Default::default()
+    };
     let e = ark::manifest::apply_env_set(&m).expect_err("坏值应拒");
     assert!(e.contains("env_set 值含换行"), "{e}");
 }

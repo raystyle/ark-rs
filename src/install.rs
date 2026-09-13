@@ -231,7 +231,7 @@ pub fn install_tool(
     let expected_sha = checksum::expected_sha256(def, res, env_root)?;
 
     // 下载（tag 与锁定不一致时强制重下，对齐 -Force:$forceDownload）；
-    // 官方失败回落 env.ohmygh.com 镜像（D08，仅当有 sha 锚：pin 或官方 sums 均可作锚）
+    // 镜像优先（D44）：env.ohmygh.com 单次首试，未命中或锚不符回落官方；有锚必校验（pin、镜像版本段边车或官方 sums）
     let force_download = def.pin_tag() != Some(res.tag.as_str());
     let cache = download::download_asset_with_mirror(
         env_root,
@@ -253,7 +253,15 @@ pub fn install_tool(
             "https://github.com/{repo}/releases/download/{}/{bootstrap}",
             res.tag
         );
-        let boot_path = download::download_asset(env_root, bootstrap, &boot_url, None, false)?;
+        let boot_path = download::download_asset_with_mirror(
+            env_root,
+            bootstrap,
+            &boot_url,
+            None,
+            false,
+            name,
+            &res.version,
+        )?;
         let head = fs::read(&boot_path)
             .map_err(|e| format!("读取 BootstrapAsset 失败: {}: {e}", boot_path.display()))?;
         if head.len() < 2 {
@@ -384,7 +392,8 @@ fn link_into_user_bin(user_bin: &Path, name: &str, exe: &Path) -> Result<bool, S
         Err(_) if dst.exists() => return Ok(false),
         Err(_) => {}
     }
-    std::fs::create_dir_all(user_bin).map_err(|e| format!("建目录失败 {}: {e}", user_bin.display()))?;
+    std::fs::create_dir_all(user_bin)
+        .map_err(|e| format!("建目录失败 {}: {e}", user_bin.display()))?;
     std::os::unix::fs::symlink(exe, &dst)
         .map_err(|e| format!("直链失败 {} -> {}: {e}", dst.display(), exe.display()))?;
     Ok(true)
@@ -398,7 +407,10 @@ fn ensure_user_bin_link(name: &str, exe: &Path) {
     }
     let Some(home) = dirs::home_dir() else { return };
     match link_into_user_bin(&home.join(".local").join("bin"), name, exe) {
-        Ok(true) => eprintln!("[OK] 用户 bin 直链已建: ~/.local/bin/{name} -> {}", exe.display()),
+        Ok(true) => eprintln!(
+            "[OK] 用户 bin 直链已建: ~/.local/bin/{name} -> {}",
+            exe.display()
+        ),
         Ok(false) => {}
         Err(e) => eprintln!("[WARN] {e}"),
     }
@@ -616,14 +628,21 @@ fn npm_cmd_env() -> (std::path::PathBuf, Option<std::ffi::OsString>) {
         }
     }
     if let Some(bin) = fnm_node_bin() {
-        if let Ok(npm) = which::which_in("npm", Some(&bin), std::env::current_dir().unwrap_or_default().as_path()) {
+        if let Ok(npm) = which::which_in(
+            "npm",
+            Some(&bin),
+            std::env::current_dir().unwrap_or_default().as_path(),
+        ) {
             let path = std::env::var_os("PATH").unwrap_or_default();
             let mut parts: Vec<PathBuf> = std::env::split_paths(&path).collect();
             parts.insert(0, bin.clone());
             if let Ok(joined) = std::env::join_paths(parts) {
                 // 同时注入自身进程 PATH：装后版本探测（exe_path 的 PATH 现查）同链生效
                 std::env::set_var("PATH", &joined);
-                eprintln!("[INFO] 经 fnm 静态位解析 node（multishell 只做执行期）: {}", npm.display());
+                eprintln!(
+                    "[INFO] 经 fnm 静态位解析 node（multishell 只做执行期）: {}",
+                    npm.display()
+                );
                 return (npm, Some(joined));
             }
         }
@@ -752,10 +771,16 @@ mod user_bin_link_tests {
         let dst = user_bin.join("codex");
 
         // 1) 首建：落点目录不存在也自动建
-        assert!(link_into_user_bin(&user_bin, "codex", &exe).expect("首建应成功"), "首建应报告有动作");
+        assert!(
+            link_into_user_bin(&user_bin, "codex", &exe).expect("首建应成功"),
+            "首建应报告有动作"
+        );
         assert_eq!(std::fs::read_link(&dst).expect("应为链接"), exe);
         // 2) 幂等：再跑无动作
-        assert!(!link_into_user_bin(&user_bin, "codex", &exe).expect("幂等应成功"), "已指对不应重复动作");
+        assert!(
+            !link_into_user_bin(&user_bin, "codex", &exe).expect("幂等应成功"),
+            "已指对不应重复动作"
+        );
         // 3) 悬空链接（target 已卸）：先删再建
         std::fs::remove_file(&dst).expect("拆链接");
         std::os::unix::fs::symlink(tool_dir.join("gone"), &dst).expect("造悬空链接");
@@ -779,7 +804,10 @@ mod user_bin_link_tests {
         std::fs::write(&same, b"jq").expect("写真 exe");
         assert!(!link_into_user_bin(&user_bin, "jq", &same).expect("同路径应跳过"));
         assert!(
-            std::fs::symlink_metadata(&same).expect("元数据").file_type().is_file(),
+            std::fs::symlink_metadata(&same)
+                .expect("元数据")
+                .file_type()
+                .is_file(),
             "同路径落点不应被换成链接"
         );
     }
@@ -789,7 +817,11 @@ mod user_bin_link_tests {
         let dir = tempfile::tempdir().expect("临时目录");
         let base = dir.path().join("fnm");
         let mk = |v: &str, with_npm: bool| {
-            let bin = base.join("node-versions").join(v).join("installation").join("bin");
+            let bin = base
+                .join("node-versions")
+                .join(v)
+                .join("installation")
+                .join("bin");
             std::fs::create_dir_all(&bin).expect("建版本目录");
             if with_npm {
                 std::fs::write(bin.join("npm"), b"#!/bin/sh\n").expect("写 npm");
@@ -820,15 +852,29 @@ mod user_bin_link_tests {
         );
         // 别名目录不存在/无 npm 的版本全部排除后应返回 None
         let empty = dir.path().join("empty-fnm");
-        std::fs::create_dir_all(empty.join("node-versions").join("v1.0.0").join("installation").join("bin"))
-            .expect("建空版本目录");
+        std::fs::create_dir_all(
+            empty
+                .join("node-versions")
+                .join("v1.0.0")
+                .join("installation")
+                .join("bin"),
+        )
+        .expect("建空版本目录");
         assert!(fnm_node_bin_in(&empty).is_none(), "无 npm 的版本不应被选中");
         // 别名指向无 npm 的残缺版本时，落回版本扫描（而不是就断在那儿）
         let broken_alias = dir.path().join("fnm-broken-alias");
-        let with_npm = broken_alias.join("node-versions").join("v20.0.0").join("installation").join("bin");
+        let with_npm = broken_alias
+            .join("node-versions")
+            .join("v20.0.0")
+            .join("installation")
+            .join("bin");
         std::fs::create_dir_all(&with_npm).expect("建可用版本");
         std::fs::write(with_npm.join("npm"), b"#!/bin/sh\n").expect("写 npm");
-        let partial = broken_alias.join("node-versions").join("v99.0.0").join("installation").join("bin");
+        let partial = broken_alias
+            .join("node-versions")
+            .join("v99.0.0")
+            .join("installation")
+            .join("bin");
         std::fs::create_dir_all(&partial).expect("建残缺版本");
         std::fs::create_dir_all(broken_alias.join("aliases")).expect("建 aliases");
         std::os::unix::fs::symlink(
@@ -853,7 +899,9 @@ mod user_bin_link_tests {
         assert!(is_session_shim(Path::new(
             r"C:\Users\ray\AppData\Local\fnm_multishells\13508_1789117621809\npm.cmd"
         )));
-        assert!(!is_session_shim(Path::new("/home/ray/.local/share/fnm/node-versions/v24.20.0/installation/bin/npm")));
+        assert!(!is_session_shim(Path::new(
+            "/home/ray/.local/share/fnm/node-versions/v24.20.0/installation/bin/npm"
+        )));
         assert!(!is_session_shim(Path::new("/opt/homebrew/bin/npm")));
         assert!(!is_session_shim(Path::new("/usr/local/bin/npm")));
     }

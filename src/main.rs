@@ -40,7 +40,7 @@ const LLMS_MANIFEST: &str = "\
 | ark heal [维度] [--dry-run] | 部署维度幂等自愈（省略则全量） | dim,action,result | 1=有 fail |
 | ark skill | 自适应生成环境 SKILL（本机依赖清单+使用引导+命令图，agent 发现入口） | 全文 | 0/1 |
 | ark catalog [status\\|sync] | 派生·运行态软件清单：status 看解析面/云端锚/同步态与 manifest 面（在位/本地锚/年龄/云端锚/签名），sync 立即从云端刷新两件（边车锚，ARK_CATALOG_TTL 与 ARK_OFFLINE 只管自动刷新，旧名 OME_* 读回） | path,origin,local_sha256,cloud_sha256,synced,manifest_present,manifest_local_sha256,manifest_cloud_sha256,manifest_synced 或 action,sha256 | 0/1 |
-| ark self update [--stable|--git] | 升级自身三通道（官方失败回落镜像对应通道段，边车即锚；ARK_MIRROR=1 镜像优先） | exe,sha256 | 0/1 |
+| ark self update [--stable|--git] | 升级自身三通道（默认走镜像对应通道段、未命中回落官方，边车即锚；ARK_MIRROR=1 为解析面跳过官方 API） | exe,sha256 | 0/1 |
 
 细契约：仓库 docs\\references\\R013（输出格式/退出码/冻结面）。
 ";

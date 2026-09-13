@@ -158,11 +158,24 @@ fn download_asset_with_mirror_urls(
     if let Some(hit) = cache_reuse(&dest, expected_sha256, force)? {
         return Ok(hit);
     }
+    // 锚解析（对线 F1）：调用方锚优先；无锚时取镜像**版本段边车** `{url}.sha256` 作该段锚
+    // （R015「无 sha 不入镜」，版本段边车在位是常态；与 latest 段口径统一）；
+    // 边车取不到即回落官方——镜像段不产生无校验下载（原 D08「有锚才回落」门的镜像侧等价物）。
+    let anchor = match expected_sha256 {
+        Some(s) => s.to_string(),
+        None => match mirror_sidecar_anchor_fast(&format!("{mirror_dl_url}.sha256")) {
+            Ok(sha) => sha,
+            Err(sidecar_err) => {
+                eprintln!(
+                    "[INFO] 镜像版本段无锚（边车取不到），回落官方: {official_url}（{sidecar_err}）"
+                );
+                return download_asset(env_root, asset_name, official_url, expected_sha256, true);
+            }
+        },
+    };
     // CF 缓存击穿：锚值进 query（锚变缓存键变；锚校验兜底语义不变）
-    let murl_busted = expected_sha256
-        .map(|sha| with_query(mirror_dl_url, &format!("v={sha}")))
-        .unwrap_or_else(|| mirror_dl_url.to_string());
-    match mirror_fetch_once(&dest, &murl_busted, expected_sha256) {
+    let murl_busted = with_query(mirror_dl_url, &format!("v={anchor}"));
+    match mirror_fetch_once(&dest, &murl_busted, Some(&anchor)) {
         Ok(()) => {
             eprintln!("[OK] 已下载（镜像优先）: {}", dest.display());
             Ok(dest)
@@ -180,9 +193,23 @@ fn download_asset_with_mirror_urls(
     }
 }
 
+/// 镜像边车锚单次快取（对线 F1/F3）：单次短超时取文本（不退避不 curl——镜像未播属常态，
+/// 须秒级判明），解析首 token 64-hex 大写；`mirror_sidecar_sha` 的快速版。
+fn mirror_sidecar_anchor_fast(sidecar_url: &str) -> Result<String, String> {
+    let text = fetch_text_short(
+        &with_query(sidecar_url, &format!("t={}", now_secs())),
+        Duration::from_secs(20),
+    )?;
+    parse_sidecar_sha(&text, sidecar_url)
+}
+
 /// 缓存三分支（原 download_asset 前半，提取共用）：命中返回 Some(dest)。
 /// sha 基准在位且不符即删缓存（返回 None 走下载）；无基准且非空复用；空缓存删除。
-fn cache_reuse(dest: &Path, expected_sha256: Option<&str>, force: bool) -> Result<Option<PathBuf>, String> {
+fn cache_reuse(
+    dest: &Path,
+    expected_sha256: Option<&str>,
+    force: bool,
+) -> Result<Option<PathBuf>, String> {
     if !dest.exists() || force {
         return Ok(None);
     }
@@ -192,7 +219,10 @@ fn cache_reuse(dest: &Path, expected_sha256: Option<&str>, force: bool) -> Resul
             eprintln!("[OK] 命中缓存（sha256 一致）: {}", dest.display());
             return Ok(Some(dest.to_path_buf()));
         }
-        eprintln!("[WARN] 缓存 sha256 不匹配，删除后重新下载: {}", dest.display());
+        eprintln!(
+            "[WARN] 缓存 sha256 不匹配，删除后重新下载: {}",
+            dest.display()
+        );
         fs::remove_file(dest).map_err(|e| format!("删除旧缓存失败: {}: {e}", dest.display()))?;
     } else {
         let nonempty = fs::metadata(dest).map(|m| m.len() > 0).unwrap_or(false);
@@ -200,7 +230,10 @@ fn cache_reuse(dest: &Path, expected_sha256: Option<&str>, force: bool) -> Resul
             eprintln!("[INFO] 已有缓存但无 sha256 基准，复用: {}", dest.display());
             return Ok(Some(dest.to_path_buf()));
         }
-        eprintln!("[WARN] 缓存为空（视为未完成），删除后重新下载: {}", dest.display());
+        eprintln!(
+            "[WARN] 缓存为空（视为未完成），删除后重新下载: {}",
+            dest.display()
+        );
         fs::remove_file(dest).map_err(|e| format!("删除空缓存失败: {}: {e}", dest.display()))?;
     }
     Ok(None)
@@ -240,23 +273,11 @@ pub fn parse_sidecar_sha(text: &str, sidecar_url: &str) -> Result<String, String
         .ok_or_else(|| format!("边车无有效 sha256: {sidecar_url}"))
 }
 
-/// 镜像 .sha256 边车取锚（digest 替代源）。
-/// 每次取新不复用缓存（latest 段内容会滚，沙滚语义由种子端保证）。
-pub fn mirror_sidecar_sha(env_root: &Path, sidecar_url: &str) -> Result<String, String> {
-    let name = sidecar_url
-        .rsplit('/')
-        .next()
-        .unwrap_or("ome-sidecar.sha256")
-        .to_string();
-    // CF 缓存击穿：边车带时间戳每次回源（latest 段沙滚，边车必须取新）
-    let path = download_fresh(
-        env_root,
-        &name,
-        &with_query(sidecar_url, &format!("t={}", now_secs())),
-    )?;
-    let text = std::fs::read_to_string(&path)
-        .map_err(|e| format!("读边车失败: {}: {e}", path.display()))?;
-    parse_sidecar_sha(&text, sidecar_url)
+/// 镜像 .sha256 边车取锚（digest 替代源）。单次短超时快取（对线 F3：不退避不 curl，
+/// 镜像未播或不可达须秒级回落官方，完整重试链会让 evergreen 常态路径先赔数十秒）；
+/// 时间戳 query 每次回源（latest 段沙滚，边车必须取新）。
+pub fn mirror_sidecar_sha(_env_root: &Path, sidecar_url: &str) -> Result<String, String> {
+    mirror_sidecar_anchor_fast(sidecar_url)
 }
 
 /// 带镜像优先的 latest 段资产下载（D08 第二批，evergreen 引导器：rust / vsbuild；D44 反转）：

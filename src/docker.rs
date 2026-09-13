@@ -68,7 +68,15 @@ pub fn install(
             .ok_or_else(|| "docker 条目缺少 cdn_url 字段".to_string())?
             .replace("{version}", &r.version);
         let sha = def.pin_sha256();
-        let zip = download::download_asset(env_root, &r.asset_name, &url, sha, false)?;
+        let zip = download::download_asset_with_mirror(
+            env_root,
+            &r.asset_name,
+            &url,
+            sha,
+            false,
+            "docker",
+            &r.version,
+        )?;
         extract_docker_bin(&zip, &bin_dir)?;
         eprintln!("[OK] docker/dockerd 就绪: {}", bin_dir.display());
         install_compose_plugin(env_root)?;

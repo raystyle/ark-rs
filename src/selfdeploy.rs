@@ -186,7 +186,7 @@ pub fn render_skill(cat: &crate::catalog::Catalog, env_root: &Path) -> Result<St
             out.push('\n');
         }
     }
-    out.push_str("## ark 命令与工作流\n\n- 诊断环境：`ark doctor`（系统/依赖两层 + check 节 + verdict 一锤定音：ready/degraded/broken）\n- 缺什么装什么：`ark install`（省略则全量，幂等，官方失败回落 env.ohmygh.com 镜像）\n- 看三态：`ark status`；升级：`ark update`（省略则全量；agent 类走自更新）\n- 清单来源与刷新：`ark catalog`（看解析面与云端同步态；`ark catalog sync` 立即从云端刷新，新增软件不必换二进制）\n- 命令全图：`ark --llms`\n\n> 环境变化后重跑 `ark skill` 刷新本清单。\n");
+    out.push_str("## ark 命令与工作流\n\n- 诊断环境：`ark doctor`（系统/依赖两层 + check 节 + verdict 一锤定音：ready/degraded/broken）\n- 缺什么装什么：`ark install`（省略则全量，幂等，默认走 env.ohmygh.com 镜像、未命中回落官方）\n- 看三态：`ark status`；升级：`ark update`（省略则全量；agent 类走自更新）\n- 清单来源与刷新：`ark catalog`（看解析面与云端同步态；`ark catalog sync` 立即从云端刷新，新增软件不必换二进制）\n- 命令全图：`ark --llms`\n\n> 环境变化后重跑 `ark skill` 刷新本清单。\n");
     Ok(out)
 }
 

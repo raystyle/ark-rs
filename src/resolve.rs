@@ -253,7 +253,7 @@ fn resolve_github(name: &str, tool: &Tool, opts: &ResolveOptions) -> Result<Reso
     };
 
     // D38 消费面镜像直装：GitHub API 失败（私有仓匿名 404、限流、断网）且 pin 四键齐
-    // （锚 = pin sha256）时回落镜像资产域直拼 URL——与 D08「官方失败回落、有锚才落」
+    // （锚 = pin sha256）时回落镜像资产域直拼 URL——镜像为主通道（D44），有锚必校验
     // 同源，回落前移到查询段；下载与校验链不变（expected_sha256 仍 pin 优先）。
     // ARK_MIRROR=1（读回 OME_MIRROR）时 pin 驱动直接镜像（selfupdate 同名开关语义扩展到解析面，真跳过 API）。
     let pin_driven = !opts.latest && opts.tag.is_none() && opts.version.is_none();

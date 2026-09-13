@@ -216,7 +216,7 @@ fn install_elevated(
         .map_err(|e| format!("创建安装目录失败: {}: {e}", install_dir.display()))?;
 
     // 永续引导器：aka.ms 直链无版本无官方 sha（evergreen 语义）；
-    // 官方失败回落镜像 latest 段，边车 .sha256 即信任锚（D08 第二批）
+    // 镜像优先 latest 段（D44），边车 .sha256 即信任锚，未命中回落官方（D08 第二批）
     let boot = download::download_latest_with_sidecar(env_root, BOOTSTRAPPER, url, "vsbuild")?;
 
     eprintln!("[INFO] 运行 VS Build Tools 静默安装（VCTools 组件三件套）...");
