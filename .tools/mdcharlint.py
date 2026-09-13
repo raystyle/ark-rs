@@ -14,6 +14,13 @@
 
 import re
 import sys
+
+# 输出端编码免疫（M006 家族）：CI hosted runner 新镜像 Python 默认 cp1252，print 中文
+# （含「通过」行）即 UnicodeEncodeError 假红；stdout/stderr 统一 UTF-8 加损耗替换
+for _s in (sys.stdout, sys.stderr):
+    if hasattr(_s, "reconfigure"):
+        _s.reconfigure(encoding="utf-8", errors="replace")
+
 from pathlib import Path
 
 RULES = [

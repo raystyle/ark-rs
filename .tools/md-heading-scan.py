@@ -23,6 +23,11 @@ import os
 import re
 import sys
 
+# 输出端编码免疫（CI cp1252 假红），见 mdcharlint 同款
+for _s in (sys.stdout, sys.stderr):
+    if hasattr(_s, "reconfigure"):
+        _s.reconfigure(encoding="utf-8", errors="replace")
+
 SKIP_DIRS = ('.git', 'target', 'node_modules', '.tools')
 HEADING = re.compile(r'^(#{1,6}) (.*)$')
 BRACKET = re.compile(r'[（）()]')

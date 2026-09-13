@@ -24,6 +24,11 @@ import os
 import re
 import sys
 
+# 输出端编码免疫（CI cp1252 假红），见 mdcharlint 同款
+for _s in (sys.stdout, sys.stderr):
+    if hasattr(_s, "reconfigure"):
+        _s.reconfigure(encoding="utf-8", errors="replace")
+
 REF_PAT = re.compile(
     r'(?:docs[\\/][\w\\/\-一-鿿\.]+?\.md'
     r'|(?:INDEX|GOAL|PLAN|TODO|AGENTS|README|CHANGELOG|ROADMAP|CLAUDE|template)\.md)'
