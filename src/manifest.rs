@@ -185,9 +185,18 @@ pub fn platform_covered(pi: &PostInstall) -> bool {
     has || pi.skip.as_ref().is_some_and(|s| s.iter().any(|p| p == name))
 }
 
-/// L1：应用用户级环境变量（逐键幂等）。
+/// L1：应用用户级环境变量（逐键幂等）。键值先过形态校验（与 mirror 同一红线：
+/// 本地面无签名门，换行/双引号值拼进 export 行即注入面，对线 R5 确认轮收口 env_set）。
 pub fn apply_env_set(m: &ToolManifest) -> Result<(), String> {
     let Some(kv) = &m.env_set else { return Ok(()) };
+    for (k, v) in kv {
+        if !env_key_sane(k) {
+            return Err(format!("env_set 键形态非法: {k}"));
+        }
+        if !env_value_sane(v) {
+            return Err(format!("env_set 值含换行或双引号，拒绝落源: {k}"));
+        }
+    }
     for (k, v) in kv {
         crate::platform::set_user_env_var(k, v)?;
         eprintln!("[OK] manifest env_set 已设: {k}={v}（新终端生效）");
@@ -197,15 +206,16 @@ pub fn apply_env_set(m: &ToolManifest) -> Result<(), String> {
 
 // ── L1 mirror 节落源（D42）：值数据面声明，落点与合并语义引擎按类型实现 ──
 
-/// mirror 值形态校验（对线 R5，注入面）：值拒绝换行与双引号——TOML 转义可产出真实换行，
-/// 拼进 npmrc/bunfig/uv.toml/bashrc 即注入额外行（rc 注入即命令执行）；本地面
-/// （ARK_CATALOG 指目录）无签名门，写入前必须自拒。lint 同规则复用（单一权威）。
-pub fn mirror_value_sane(v: &str) -> bool {
+/// 环境写入面值形态校验（对线 R5，注入面；env_set 与 mirror 单值键共用）：值拒绝换行与
+/// 双引号——TOML 转义可产出真实换行，拼进 npmrc/bunfig/uv.toml/bashrc/export 行即注入
+/// 额外行（rc 注入即命令执行）；本地面（ARK_CATALOG 指目录）无签名门，写入前必须自拒。
+/// lint 同规则复用（单一权威）。
+pub fn env_value_sane(v: &str) -> bool {
     !v.contains(['\n', '\r', '"'])
 }
 
-/// mirror env 键形态校验：标识符形态（防键里带 `=` 或元字符破坏 export 行）。lint 同规则复用。
-pub fn mirror_env_key_sane(k: &str) -> bool {
+/// 环境写入面键形态校验：标识符形态（防键里带 `=` 或元字符破坏 export 行）。lint 同规则复用。
+pub fn env_key_sane(k: &str) -> bool {
     !k.is_empty()
         && k.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
         && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
@@ -224,10 +234,10 @@ pub fn apply_mirror(m: &ToolManifest, tool: &str, home: &Path) -> Result<(), Str
     }
     // 值与键形态先全量校验（硬错）：任一键不 sane 即拒整节，不做半套落源
     for (k, v) in mir.env.iter().flatten() {
-        if !mirror_env_key_sane(k) {
+        if !env_key_sane(k) {
             return Err(format!("mirror env 键形态非法: {k}"));
         }
-        if !mirror_value_sane(v) {
+        if !env_value_sane(v) {
             return Err(format!("mirror env 值含换行或双引号，拒绝落源: {k}"));
         }
     }
@@ -237,12 +247,12 @@ pub fn apply_mirror(m: &ToolManifest, tool: &str, home: &Path) -> Result<(), Str
         ("uv_index", mir.uv_index.as_deref()),
         ("pip_index", mir.pip_index.as_deref()),
     ] {
-        if v.is_some_and(|v| !mirror_value_sane(v)) {
+        if v.is_some_and(|v| !env_value_sane(v)) {
             return Err(format!("mirror {what} 值含换行或双引号，拒绝落源"));
         }
     }
     for k in mir.env_unset.iter().flatten() {
-        if !mirror_env_key_sane(k) {
+        if !env_key_sane(k) {
             return Err(format!("mirror env_unset 键形态非法: {k}"));
         }
     }
@@ -711,15 +721,15 @@ mod tests {
     /// 对线 R5：值与键形态校验（注入面；TOML 转义可产出真实换行）。
     #[test]
     fn mirror值键形态_校验规则() {
-        assert!(mirror_value_sane("https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"));
-        assert!(!mirror_value_sane("https://x/\nregistry=evil"), "换行拒");
-        assert!(!mirror_value_sane("say \"hi\""), "双引号拒");
-        assert!(!mirror_value_sane("crlf\r\n"), "\\r 拒");
-        assert!(mirror_env_key_sane("FNM_NODE_DIST_MIRROR"));
-        assert!(mirror_env_key_sane("_OK"));
-        assert!(!mirror_env_key_sane("BAD-KEY"));
-        assert!(!mirror_env_key_sane("K=1"));
-        assert!(!mirror_env_key_sane(""));
+        assert!(env_value_sane("https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"));
+        assert!(!env_value_sane("https://x/\nregistry=evil"), "换行拒");
+        assert!(!env_value_sane("say \"hi\""), "双引号拒");
+        assert!(!env_value_sane("crlf\r\n"), "\\r 拒");
+        assert!(env_key_sane("FNM_NODE_DIST_MIRROR"));
+        assert!(env_key_sane("_OK"));
+        assert!(!env_key_sane("BAD-KEY"));
+        assert!(!env_key_sane("K=1"));
+        assert!(!env_key_sane(""));
     }
 
     #[test]

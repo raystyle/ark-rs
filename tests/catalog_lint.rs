@@ -117,6 +117,15 @@ fn lint_manifest(dir: &Path, cat: &ark::catalog::Catalog) -> Vec<String> {
                 errs.push(format!("manifest.{name}: post_install 三键全空（应省略整节）"));
             }
         }
+        // env_set 面（对线 R5 确认轮收口）：键值形态校验与引擎同源（D39 起的未校验面补齐）
+        for (k, v) in m.env_set.iter().flatten() {
+            if !ark::manifest::env_key_sane(k) {
+                errs.push(format!("manifest.{name}: env_set 键形态非法: {k}"));
+            }
+            if !ark::manifest::env_value_sane(v) {
+                errs.push(format!("manifest.{name}: env_set 值含换行或双引号: {k}"));
+            }
+        }
         // mirror 面（D42）：空节应省略（与 post_install 三键全空同款形态约束）；
         // 值与键形态校验与引擎同源（对线 R5：单值键拒换行与双引号，env 键标识符形态）
         if let Some(mir) = &m.mirror {
@@ -124,15 +133,15 @@ fn lint_manifest(dir: &Path, cat: &ark::catalog::Catalog) -> Vec<String> {
                 errs.push(format!("manifest.{name}: mirror 节全键空（应省略整节）"));
             }
             for (k, v) in mir.env.iter().flatten() {
-                if !ark::manifest::mirror_env_key_sane(k) {
+                if !ark::manifest::env_key_sane(k) {
                     errs.push(format!("manifest.{name}: mirror env 键形态非法: {k}"));
                 }
-                if !ark::manifest::mirror_value_sane(v) {
+                if !ark::manifest::env_value_sane(v) {
                     errs.push(format!("manifest.{name}: mirror env 值含换行或双引号: {k}"));
                 }
             }
             for k in mir.env_unset.iter().flatten() {
-                if !ark::manifest::mirror_env_key_sane(k) {
+                if !ark::manifest::env_key_sane(k) {
                     errs.push(format!("manifest.{name}: mirror env_unset 键形态非法: {k}"));
                 }
             }
@@ -143,7 +152,7 @@ fn lint_manifest(dir: &Path, cat: &ark::catalog::Catalog) -> Vec<String> {
                 ("pip_index", mir.pip_index.as_deref()),
             ];
             for (key, val) in url_keys {
-                if val.is_some_and(|v| !ark::manifest::mirror_value_sane(v)) {
+                if val.is_some_and(|v| !ark::manifest::env_value_sane(v)) {
                     errs.push(format!("manifest.{name}: mirror {key} 值含换行或双引号"));
                 }
             }
@@ -243,14 +252,14 @@ fn manifest_mirror值形态红灯() {
     for (name, m) in &mf.manifest {
         if let Some(mir) = &m.mirror {
             for (k, v) in mir.env.iter().flatten() {
-                if !ark::manifest::mirror_env_key_sane(k) {
+                if !ark::manifest::env_key_sane(k) {
                     errs.push(format!("manifest.{name}: mirror env 键形态非法: {k}"));
                 }
-                if !ark::manifest::mirror_value_sane(v) {
+                if !ark::manifest::env_value_sane(v) {
                     errs.push(format!("manifest.{name}: mirror env 值含换行或双引号: {k}"));
                 }
             }
-            if mir.npm_registry.as_deref().is_some_and(|v| !ark::manifest::mirror_value_sane(v)) {
+            if mir.npm_registry.as_deref().is_some_and(|v| !ark::manifest::env_value_sane(v)) {
                 errs.push(format!("manifest.{name}: mirror npm_registry 值含换行或双引号"));
             }
         }
@@ -258,4 +267,30 @@ fn manifest_mirror值形态红灯() {
     assert!(errs.iter().any(|e| e.contains("a: mirror npm_registry")), "{errs:?}");
     assert!(errs.iter().any(|e| e.contains("bad-key")), "{errs:?}");
     assert!(!errs.iter().any(|e| e.contains("b:") || e.contains("OK_KEY")), "干净节不应报: {errs:?}");
+}
+
+#[test]
+fn manifest_env_set值形态红灯() {
+    // 对线 R5 确认轮：env_set 与 mirror 同一注入面（D39 起未校验），lint 与引擎同源拒
+    let text = "schema_version = 1\n[manifest.a.env_set]\nGOOD_KEY = \"1\"\n[manifest.b.env_set]\nEVIL = \"v\\ninjected=1\"\n[manifest.c.env_set]\n\"bad key\" = \"1\"\n";
+    let mf = ark::manifest::parse(text).expect("应解析");
+    let mut errs = Vec::new();
+    for (name, m) in &mf.manifest {
+        for (k, v) in m.env_set.iter().flatten() {
+            if !ark::manifest::env_key_sane(k) {
+                errs.push(format!("manifest.{name}: env_set 键形态非法: {k}"));
+            }
+            if !ark::manifest::env_value_sane(v) {
+                errs.push(format!("manifest.{name}: env_set 值含换行或双引号: {k}"));
+            }
+        }
+    }
+    assert!(errs.iter().any(|e| e.contains("b: env_set 值")), "{errs:?}");
+    assert!(errs.iter().any(|e| e.contains("bad key")), "{errs:?}");
+    assert!(!errs.iter().any(|e| e.contains("a:") || e.contains("GOOD_KEY")), "干净节不应报: {errs:?}");
+    // 引擎面同拒：坏值在写入前硬错（校验先于任何 set_user_env_var，单测可直接跑）
+    let mut m = ark::manifest::ToolManifest::default();
+    m.env_set = Some([("EVIL".to_string(), "v\ninjected=1".to_string())].into());
+    let e = ark::manifest::apply_env_set(&m).expect_err("坏值应拒");
+    assert!(e.contains("env_set 值含换行"), "{e}");
 }
