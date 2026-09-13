@@ -10,7 +10,7 @@ D43 zig 版本去锁（2026-09-13 立项，用户裁定「不再锁定 zig 版�
 
 | 任务项 | 进度 | 说明 | 日期 |
 | --- | --- | --- | --- |
-| D43：zig 版本去锁 | 进行中 | **引擎三件已落**（分支 a 泛化 ziglang index、official_sha256 直值锚、{version} 占位 glob 探测与定版）真机实证绿（解析 latest、镜像命中锚校验、占位布局安装、幂等/update skip）；待对岸 dispatch zig 数据后端到端复验与发版；对线右侧 codex | 2026-09-13 |
+| D43：zig 版本去锁 | 已完成 | v1.2.0 已发：对线两轮 CONFIRM（Z1 glob 双分隔符修复防幂等静默失效）；对岸数据 dispatch 后 WSL 端到端绿（query latest、镜像优先官方锚校验、占位布局定版、幂等二连/update skip、zig version 0.16.0 跑通） | 2026-09-13 |
 | D44：下载链反转镜像优先 | 已完成 | v1.1.1 已发版（tag CI 三平台绿、stable 段 200、WSL self update 到位）；对线两轮（F1-F7 加 G1-G4）全修 CONFIRM；WSL 实证：1.1.1 到位、go mirror 节 env 加 goproxy 语义键落 GOENV（[OK] mirror 已写）、清缓存重装实证「已下载（镜像优先）」 | 2026-09-13 |
 | D42：运行时源中国镜像统一落 manifest | 已完成 | 全链收官：主体 `d0e6104` 加对线三轮 CONFIRM 修复，**v1.1.0 已发版**（tag CI 三平台绿、双 stable 段 200、WSL self update 到位）；omc 四件数据就绪（manifest mirror 三节 seq 24、rust POSIX 字段、镜像桶 rustup-init、对岸 lint 谓词）；**WSL 验收 A13 六件断言 PASS**（对岸已撤 bootstrap 兜底后仍绿，正实证；A2 node、A16 python、E1/E2 同绿）。收尾复验：bun 1.4.1 三平台 pin 落地后 install 绿且 **mirror 链闭环**（bunfig 由 mirror 节写）；officecli probe 修复生效（1.0.149）；omc 仍解析 v0.3.2（云端 pin 疑未 dispatch，已回执对岸核对）。wsl-verify 其余红项归对岸 deploy 链总台重构（对岸回执确认非 ark 面） | 2026-09-13 |
 | D41：更名 Ark 迁移（运营期） | 已完成 | 四阶段全收官：A/B/C 逐批对线推 main CI 绿；D 文档批加 **v1.0.0 已发版**（tag CI 绿、release 六资产双名同 digest、双 stable 段 200、部署位验收全绿含 replace_exe 首落修复 `ef44915`）；omc 三件批切回执已至（tools.ark 入册 seq 10、deploy 全切 ark、lan-linux 实证通）。余过渡期运营：oma 回执待收、存量机水位观测、停 ome/ 面（段与资产名与 ome-self）待水位清零、oma/omc 存量机升级跟进 | 2026-09-12 |

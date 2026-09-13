@@ -2,7 +2,9 @@
 
 > 版本里程碑。SemVer `vMAJOR.MINOR.PATCH`。
 
-## [Unreleased]
+## [1.2.0] - 2026-09-13
+
+minor：**D43 zig 版本去锁**（用户裁定「不再锁定 zig 版本」）。
 
 - zig 版本去锁（D43，用户裁定「不再锁定 zig 版本」）：resolve 分支 a 泛化 ziglang index 形态（顶层版本键滤 master 取 semver 最大、per-target tarball 直取、`shasum` 官方直值锚进 `Resolution.official_sha256`，checksum 官方链最前）；无 pin 条目默认 latest；布局字段 `{version}` 占位（探测 glob 取 semver 最大在位版本、装后验证与 PATH 注册按解析版本定版）；`cdn_url` 模板退役。真机实证：ziglang.org index 解析 latest 0.16.0、镜像桶命中（官方 sha 锚校验）、zip-dir 占位布局安装、幂等二连 skip、update 同版 skip。
 
