@@ -5,39 +5,23 @@
 
 ## 当前目标实施计划
 
-> 当前目标：D42 运行时源中国镜像统一落 manifest（用户 2026-09-13 重投裁定 + 补充裁定）。
-> 口径：源配置收进统一 manifest 部署配置（manifest DSL 扩 mirror 节，post_install 按节落源），
-> 不散在各端脚本；全集对齐 ohmypwsh 遗产 set-mirror.ps1 / P0017 / P0019；
-> omc bootstrap 已按同口径兜底，ark 到位后撤。验收面 wsl 总台 verify A13 四件断言。
+> 当前目标：D43 zig 版本去锁（用户 2026-09-13 裁定「不再锁定 zig 版本」）。
+> zig 条目去 pin 转 latest 滚动；官方版本源 ziglang.org/download/index.json（顶层版本键、
+> per-target tarball 与 shasum）。bun 1.4.1 部署版为同批数据面裁定（对岸已落，复验绿）。
 
-### 裁定口径
+### 方案骨架（引擎三件）
 
-| 面 | 定夺 |
-| --- | --- |
-| fnm / node 面 | `FNM_NODE_DIST_MIRROR=https://npmmirror.com/mirrors/node/`（win 用户环境变量、POSIX shell rc）；npm registry=npmmirror（`~/.npmrc` 行级 upsert） |
-| uv / python 面 | `~/.config/uv/uv.toml` 清华 TUNA `[[index]]` default；pip.conf 同 TUNA；`UV_PYTHON_INSTALL_MIRROR` NJU（env 面） |
-| bun 面 | `~/.bunfig.toml` registry=npmmirror（与 heal_bunfig 同语义） |
-| rust 面 | `RUSTUP_DIST_SERVER`/`RUSTUP_UPDATE_ROOT`=rsproxy；装走 rsproxy rustup-init；cargo config rsproxy 全量形态（win=EnvRoot 重定位位、POSIX=`~/.cargo`）；rust 接管扩 POSIX（装法 + 持久 env + config + PATH） |
-| 权威与形态 | 镜像值一律 manifest 数据面声明（mirror 节）；落点与合并语义引擎按类型实现一次；rust 引导期常量与通道耦合留在 rustup 模块（收口过渡同 2026-09-11 撤内建模式，omc 数据就绪后再撤） |
-| 幂等与存量 | 各键内容一致零重写；install 幂等分支与 update 同样落源（共识③同款），存量端升级即得 |
-| 测试隔离 | mirror 落源整面受 `ARK_TEST_NO_PATH_REG` 闸门（用户环境写入面第五面） |
-
-### 方案骨架
-
-1. **manifest.rs（DSL 扩展）**：`ToolManifest` 增 `mirror` 节（键：`env`/`env_unset`/`npm_registry`/`bunfig_registry`/`uv_index`/`pip_index`/`cargo_config`，全可选）；schema_version 不动（serde 容忍未知字段，旧引擎前向兼容）；`apply_mirror` 按 kind 落源（env 走 set_user_env_var 双通道、npmrc 行级 upsert 保认证行、bunfig/uv/pip/cargo 内容比对整写）；env 先行（post_install 子进程继承，FNM_NODE_DIST_MIRROR 即时生效）。
-2. **platform.rs**：增 `remove_user_env_var`（win 注册表删值、POSIX env 块摘行；块空收口）；对应纯函数入测。
-3. **install.rs**：`apply_manifest_primitives` 接 `apply_mirror`（env_set 后、post_install 前；幂等分支与早退通道共用同点）。
-4. **rustup.rs（POSIX 接管）**：POSIX 分支落码：rsproxy rustup-init 下载（evergreen 边车锚、chmod +x）引导 stable；系统标准位 `~/.rustup`/`~/.cargo`（R010，不重定位）；持久 `RUSTUP_DIST_SERVER`/`RUSTUP_UPDATE_ROOT`；`~/.cargo/config.toml` rsproxy 全量；PATH `~/.cargo/bin`；Windows 行为零变化。
-5. **verify / heal / lint**：verify 增 POSIX `dev-rust` 维度（`~/.cargo/bin/rustc` 加 `~/.rustup/toolchains`）；heal `dev-rust` 键开 POSIX；catalog_lint manifest 面增 mirror 节校验（全空应省略）；夹具 manifest.toml 增 mirror 形态样例。
-6. **文档与回执**：R016 增 mirror 节规范；README 行为基线与 CHANGELOG；INDEX 同步；diary 当天篇；回执含 manifest 节形态说明与 omc 侧待办（manifest mirror 节数据、tools.toml rust POSIX 字段、镜像桶 rustup-init POSIX 资产、bootstrap 撤点）。
+1. **resolve 分支 a 泛化**（`src/resolve.rs` `resolve_cdn_index`）：版本集提取双形态——`versions` 子对象（HashiCorp 形）缺省时顶层对象当版本集（ziglang 形，键过 `version_key` 滤非 semver，`master` 自然滤掉，latest 取 semver 最大）；版本条目双形态——`builds` 数组（HashiCorp：filename 匹配、url 字段、shasums 清单 URL）缺省时按 per-target 对象（ziglang：`cdn_asset_pattern` 匹配 target 键，`tarball` 为资产 URL、`shasum` 为官方 sha 直值）。
+2. **官方 sha 直值锚**：`Resolution` 增 `official_sha256: Option<String>`（各分支构造点补 None）；`checksum::expected_sha256` 官方链最前插入（直值优先于清单与 digest 通道；D08 回落门「有 sha 锚才回落」天然满足，无需镜像 latest 段先行）。
+3. **布局 {version} 占位**：dir/bin/exe 字段支持 `{version}` 占位（zig 版本目录布局 `zig-x86_64-windows-{version}`）。探测面：exe 含占位时 glob 候选（占位转 `*`）取 **semver 最大**（M025 字典序同型教训，复用 `resolve::version_key`/`semver_cmp`）；安装期：`res.version` 直替换（install_dir / bin_dir / 装后验证同源）。
+4. **数据面配合项（omc，已 herdr 知会）**：zig 去三平台 pin 四元组；`cdn_index_url = "https://ziglang.org/download/index.json"`；三平台 `cdn_asset_pattern` 改 target 键形（`^x86_64-windows$` / `^x86_64-linux$` / `^aarch64-macos$`）；exe/bin 加 `{version}` 占位；三平台 `cdn_url` 模板退役（tarball 直取 index）。
 
 ### 自测面
 
-1. 单测：mirror 解析全键形态；npmrc upsert 纯函数（无文件新增行、异值行原位替换、认证行不动、带空白键形）；bunfig/uv/pip/cargo 内容比对幂等（注入 home/config dir）；env 块摘行纯函数（POSIX）；rustup POSIX 参数与位路径；lint mirror 全空报错。
-2. 集成：install 沙盒（闸门开）mirror 跳过行；`cargo test` 全量加 clippy 干净（Windows 本机）；POSIX 面单测 cfg 门控下沉（M016 纪律），WSL 真机面留验收。
-3. 真机与总台：Windows 本机 `ark install uv`/`fnm` 幂等二连零重写；WSL `ark install fnm uv rust` 后 A13 四件断言绿（omc 数据就绪后跑）；对线（右侧 codex）结论与修复回执入 diary。
+1. 单测：版本集双形态提取（含 master 滤除与 semver 最大）；per-target 条目 pattern 匹配与 tarball/shasum 取值；`{version}` 占位 glob 探测（多版本目录取 semver 最大）与安装期直替换；official_sha256 优先级。
+2. 真机：Windows `ark query zig`（latest 解析出 ziglang 当前版）、`ark install zig`（zip-dir 版本目录布局 + PATH）幂等二连；WSL 同链路；ziglang.org 断源回落镜像门（有 official_sha256 锚，视对岸镜像桶播种态）。
+3. 对线：实质改动推送前右侧 codex review，回执入 diary。
 
 ### 完成定义
 
-- mirror 节 DSL 落码加单测绿；rust POSIX 接管落码（Windows 零回归）；R016/README/CHANGELOG/INDEX/diary 齐；codex 对线过；提交号与版本回执。
-- omc 侧待办随回执知会（herdr 通道）：manifest mirror 节数据（fnm/uv/bun）、tools.toml rust linux/mac 字段、镜像桶 `rustup-init` POSIX 资产名、bootstrap 兜底撤点。
+- zig 三平台 latest 滚动绿（query/install/update/幂等）；旧 pin 布局存量机升级不破（glob 探测兼容旧版本目录）；门禁四件套绿；对岸数据面 dispatch 后端到端复验。
