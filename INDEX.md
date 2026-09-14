@@ -101,6 +101,8 @@
 | 2026-09-11 | `docs\diary\2026-09-11-manifest引擎对线三轮补审与修正.md` | manifest 引擎对线三轮补审：L2 管道抽干假超时（M017 实证）、`.cmd` 兜底相对定位、manifest 拉取吞错与同锚不刷、双轨判定粒度与 shim 落点、catalog manifest 字段解析；测试 8 加 4 全绿 |
 | 2026-09-12 | `docs\diary\2026-09-12-D41立项更名Ark迁移计划.md` | D41 立项更名 Ark：七点口径与四阶段迁移计划落 PLAN/PRD/GOAL/TODO；oma heal hooks 新形态知识转递（hook 在但 shim 缺失） |
 | 2026-09-13 | `docs\diary\2026-09-13-D42运行时源镜像统一落manifest.md` | D42 manifest mirror 节与 rust POSIX 接管：七键 DSL、A13 四件对齐、Windows 真机全链实证、uv win 发现位实证与 M029 |
+| 2026-09-14 | `docs\diary\2026-09-14-ome兼容面收口跨仓对线与CI撤双附.md` | D41 ome 兼容面收口：跨仓三轮对线、CI 撤双附、别名停建清理、桶 30 对象全清终态 |
+| 2026-09-14 | `docs\diary\2026-09-14-D46windows构建切gnu交叉编译.md` | D46 Windows 构建切 gnu 交叉：CI 交叉岗、self update 三层读序、codex 与 ohmycloud 双线对线修正 |
 
 ## 错误速查分类
 
@@ -137,7 +139,7 @@
 | `src\toolver.rs` | 已装版本探测（探测参数与正则读 catalog `probe_args`/`probe_pattern` 字段，D28 迁移；exe 路径解析与 PATH 现查） |
 | `src\status.rs` | status 三态对照 |
 | `src\selfdeploy.rs` | 自部署到用户程序目录（Windows `%LOCALAPPDATA%\Programs\ark`，接管旧 ome 位；ome 别名 2026-09-14 停建并顺带清理）+ catalog 同步到用户数据目录 |
-| `src\selfupdate.rs` | ark 自升级三通道（dev 滚动 / stable 正式版 / git 源码）：digest 对比后替换自部署目标（ome 别名已停建，升级顺带清理存量副本）；官方失败回落镜像对应通道（段读序 ark/ 先 ome/ 回落；latest 段已退役）；随升级搬迁旧元数据七件套 |
+| `src\selfupdate.rs` | ark 自升级三通道（dev 滚动 / stable 正式版 / git 源码）：digest 对比后替换自部署目标（ome 别名已停建，升级顺带清理存量副本）；官方失败回落镜像对应通道（段读序 ark/ 先 ome/ 回落；latest 段已退役）；Windows 主名自 D46 切 gnu、msvc 回退名窗口期次试（旧 msvc 源保供）、ome 兼容殿后；随升级搬迁旧元数据七件套 |
 | `src\vsbuild.rs` | VS Build Tools 接管（evergreen 引导器、gsudo 提权、机器级 PATH、cl.exe 幂等探测；语义见 R001 六） |
 | `src\rustup.rs` | Rust 接管（rustup 引导器型：rsproxy 直链 stable 滚动、cargo sparse 镜像全平台；Windows RUSTUP_HOME/CARGO_HOME 重定位 EnvRoot，POSIX 系统标准位 `~/.rustup` 与 `~/.cargo`（D42）；自 set-rust.ps1 迁移） |
 | `src\docker.rs` | Docker Engine 接管（自 set-docker.ps1 迁移：static zip + Windows 服务注册 + daemon.json 合并 + compose 插件 + 机器级 PATH；gsudo 提权；与 vsbuild 差异在有 pin 非 evergreen） |

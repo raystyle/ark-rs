@@ -34,34 +34,46 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # bin 随 crate 名（D41 A）；资产主名 ark-*（ome-* compat 双附已撤：全舰队 ome 水位
-          # 清零，2026-09-14 用户裁定收口；历史 release 的 ome-* 兼容资产不回收）
-          - os: windows-latest
-            bin: ark.exe
-            asset: ark-x86_64-pc-windows-msvc.exe
+          # bin 随 crate 名（D41 A）；资产主名 ark-<target>。Windows 自 D46 切 gnu 交叉
+          # （ubuntu 岗 mingw-w64 摆脱 VC，CRT 静态零 DLL 依赖）；msvc 历史资产的回退读序
+          # 见 src/selfupdate.rs（asset_msvc_fallback，窗口期稳定版通道保供）。
           - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
             bin: ark
             asset: ark-x86_64-unknown-linux-gnu
             apt: liblzma-dev
+          - os: ubuntu-latest
+            target: x86_64-pc-windows-gnu
+            bin: ark.exe
+            asset: ark-x86_64-pc-windows-gnu.exe
+            apt: mingw-w64
+            cross: true
           - os: macos-latest
+            target: aarch64-apple-darwin
             bin: ark
             asset: ark-aarch64-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
       - name: 装系统依赖
         if: matrix.apt != ''
         run: sudo apt-get update && sudo apt-get install -y ${{ matrix.apt }}
       - name: 构建
-        run: cargo build --release --locked
+        run: cargo build --release --locked --target ${{ matrix.target }}
       - name: 测试
-        run: cargo test --release --locked
+        # 交叉岗产物为 PE 不可在 linux 运行，跳过（测试面由 linux/mac 双岗覆盖，D46）；
+        # 岗位代码与文档门禁在 linux/mac 岗等效覆盖。
+        if: matrix.cross != true
+        run: cargo test --release --locked --target ${{ matrix.target }}
         env:
           # 真网测试（query latest / jq 安装闭环）打 api.github.com：匿名共享 IP 限流 60 次/时，
           # 认证后 5000+（resolve.rs 读 GH_TOKEN 注入 Bearer，gh api 兜底同认它）
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: 文档门禁
+        if: matrix.cross != true
         shell: bash
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -72,7 +84,7 @@ jobs:
       - name: 归位资产名
         shell: bash
         run: |
-          cp "target/release/${{ matrix.bin }}" "${{ matrix.asset }}"
+          cp "target/${{ matrix.target }}/release/${{ matrix.bin }}" "${{ matrix.asset }}"
       - name: 发布资产
         shell: bash
         env:

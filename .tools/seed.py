@@ -78,7 +78,7 @@ PLATFORMS = (("win", "", ""), ("linux", "linux_", "linux_"), ("mac", "mac_", "ma
 # 路线 A 的本仓三资产（CI 目标三元组；selfupdate 资产名同源）：主名 ark-*。
 # ome-* 兼容名与 ome/ 段已撤（全舰队 ome 水位清零，2026-09-14 收口）。
 _TRIPLES = (
-    "x86_64-pc-windows-msvc.exe",
+    "x86_64-pc-windows-gnu.exe",
     "x86_64-unknown-linux-gnu",
     "aarch64-apple-darwin",
 )
@@ -207,12 +207,17 @@ def upload_pair(local_asset: Path, sha_hex: str, tool: str, version: str, dry: b
     return ok
 
 
-def download_asset(repo: str, tag: str, asset: str, dest: Path) -> bool:
+def download_asset(repo: str, tag: str, asset: str, dest: Path, missing_ok: bool = False) -> str:
+    """下载 release 资产，返回 "ok" / "skip" / "fail"。missing_ok 时 404 记 skip
+    （D46 工具链切换窗口期：D46 前 tag 重灌时 gnu 资产不存在，段内存量 msvc 对象不动）。"""
     url = f"https://github.com/{repo}/releases/download/{tag}/{asset}"
     code, body = http_get(url, timeout=600)
     if code != 200 or not body:
+        if missing_ok and code == 404:
+            print(f"[skip] {asset} 在 {tag} 无此资产（工具链切换窗口期），不灌不红")
+            return "skip"
         print(f"[FAIL] 下载 {url}: HTTP {code}")
-        return False
+        return "fail"
     dest.write_bytes(body)
     return True
 
@@ -239,8 +244,11 @@ def main() -> int:
             tdp = Path(td)
             for asset in assets:
                 local = tdp / asset
-                if not download_asset(repo, args.tag, asset, local):
+                st = download_asset(repo, args.tag, asset, local, missing_ok=True)
+                if st == "fail":
                     results["failed"] += 1
+                    continue
+                if st == "skip":
                     continue
                 sha = sha256_file(local)
                 # 沙滚段无 version 目录：路径 <seg>/<asset>，无条件重灌（沙滚语义）
@@ -265,7 +273,7 @@ def main() -> int:
             if dry:
                 continue
             local = tdp / o["asset"]
-            if not download_asset(o["repo"], o["tag"], o["asset"], local):
+            if download_asset(o["repo"], o["tag"], o["asset"], local) != "ok":
                 results["failed"] += 1
                 fails.append(o["asset"])
                 continue

@@ -171,7 +171,7 @@ where
 /// 探针目标表（纯函数，自测 7 机检面）：自升级三面与 selfupdate 常量同源——
 /// 仓库随 REPO、镜像探针打 ark/stable 主段（D41 B；段缺省 404 也算域通不误报）。
 fn net_probe_targets() -> Vec<(&'static str, String, &'static str)> {
-    let probe_asset_win = "ark-x86_64-pc-windows-msvc.exe";
+    let probe_asset_win = "ark-x86_64-pc-windows-gnu.exe";
     vec![
         (
             "net-github-api",
@@ -864,6 +864,10 @@ mod tests {
             "ark-x86_64-pc-windows-msvc.exe",
             &bootstraps
         ));
+        assert!(is_derived_asset(
+            "ark-x86_64-pc-windows-gnu.exe",
+            &bootstraps
+        ));
         assert!(
             !is_derived_asset("claude-win32-x64.zip", &bootstraps),
             "真孤儿不放行"
@@ -894,7 +898,7 @@ mod tests {
         let mirror = t.iter().find(|(n, _, _)| *n == "net-mirror").unwrap();
         assert_eq!(
             mirror.1,
-            crate::download::mirror_url("ark", "stable", "ark-x86_64-pc-windows-msvc.exe.sha256"),
+            crate::download::mirror_url("ark", "stable", "ark-x86_64-pc-windows-gnu.exe.sha256"),
             "镜像探针应与 mirror_url 同构"
         );
     }
