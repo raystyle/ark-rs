@@ -10,7 +10,7 @@ D46 Windows 构建切 gnu 交叉编译（2026-09-14 用户裁定，摆脱 VC）�
 
 | 任务项 | 进度 | 说明 | 日期 |
 | --- | --- | --- | --- |
-| D46：Windows 构建切 gnu 交叉 | 已完成 | 当日闭环：CI 四岗绿（run 34840170118），dev release 出 ark-x86_64-pc-windows-gnu.exe，桶 ark/dev 资产与边车双 200；对线双线（codex F1/G1-G5 加 ohmycloud H1）全修并入原批（含 seed 三元组切 gnu 与 404 窗口期 skip、doctor 探针同源、单拉 release）；本机交叉复验 PE32+ 12.4MB、cargo test --release 138 全绿 | 2026-09-14 |
+| D46：Windows 构建切 gnu 交叉 | 已完成 | 当日闭环：CI 四岗绿（run 34840170118），dev release 出 ark-x86_64-pc-windows-gnu.exe，桶 ark/dev 资产与边车双 200；对线双线（codex F1/G1-G5 加 ohmycloud H1）全修并入原批（含 seed 三元组切 gnu 与 404 窗口期 skip、doctor 探针同源、单拉 release）；本机交叉复验 PE32+ 12.4MB、cargo test --release 138 全绿；**v1.2.2 已封版**（tag CI 四岗绿、stable release 出 gnu exe、镜像 ark/stable 段灌段） | 2026-09-14 |
 | D43：zig 版本去锁 | 已完成 | v1.2.0 已发：对线两轮 CONFIRM（Z1 glob 双分隔符修复防幂等静默失效）；对岸数据 dispatch 后 WSL 端到端绿（query latest、镜像优先官方锚校验、占位布局定版、幂等二连/update skip、zig version 0.16.0 跑通） | 2026-09-13 |
 | D44：下载链反转镜像优先 | 已完成 | v1.1.1 已发版（tag CI 三平台绿、stable 段 200、WSL self update 到位）；对线两轮（F1-F7 加 G1-G4）全修 CONFIRM；WSL 实证：1.1.1 到位、go mirror 节 env 加 goproxy 语义键落 GOENV（[OK] mirror 已写）、清缓存重装实证「已下载（镜像优先）」 | 2026-09-13 |
 | D42：运行时源中国镜像统一落 manifest | 已完成 | 全链收官：主体 `d0e6104` 加对线三轮 CONFIRM 修复，**v1.1.0 已发版**（tag CI 三平台绿、双 stable 段 200、WSL self update 到位）；omc 四件数据就绪（manifest mirror 三节 seq 24、rust POSIX 字段、镜像桶 rustup-init、对岸 lint 谓词）；**WSL 验收 A13 六件断言 PASS**（对岸已撤 bootstrap 兜底后仍绿，正实证；A2 node、A16 python、E1/E2 同绿）。收尾复验：bun 1.4.1 三平台 pin 落地后 install 绿且 **mirror 链闭环**（bunfig 由 mirror 节写）；officecli probe 修复生效（1.0.149）；omc 仍解析 v0.3.2（云端 pin 疑未 dispatch，已回执对岸核对）。wsl-verify 其余红项归对岸 deploy 链总台重构（对岸回执确认非 ark 面） | 2026-09-13 |

@@ -2,7 +2,9 @@
 
 > 版本里程碑。SemVer `vMAJOR.MINOR.PATCH`。
 
-## [Unreleased]
+## [1.2.2] - 2026-09-14
+
+patch 加 minor 面：ome 兼容面收口（D41 过渡窗关闭）与 **D46 Windows 构建切 gnu 交叉编译**（用户裁定摆脱 VC；stable 通道自此 gnu 资产）。
 
 - **ome 兼容面收口**（D41 过渡窗关闭；全舰队 ome 水位清零，2026-09-14 omc 舰队对账回执）：CI 撤 ome-* compat 资产双附与 ome/ 段灌写（seed.py 撤 `--ome-*` 参数族，UA 统一 ark-seed）；selfdeploy 停建 `ome` 别名并在 init 与 self update 顺带清理既有副本（幂等 best-effort，Windows 文件占用留待下次再收，lan-win 残留副本随下次升级自动收）。引擎读面不动：`is_ome_self` 双接受与镜像段 ome/ 读回落保留，历史 release 的 ome-* 资产与桶内残量仍可解析。
 - **Windows 构建切 gnu 交叉编译**（D46，用户裁定摆脱 VC）：CI windows msvc 岗退役、ubuntu 交叉岗（mingw-w64）产 `ark-x86_64-pc-windows-gnu.exe`（CRT 静态零 DLL 依赖，ohmycloud 实证）；self update 资产读序三层：gnu 主名先、`ark-x86_64-pc-windows-msvc.exe` 回退名次（stable 段与历史 release 仅剩 msvc 资产的窗口期保供）、ome 兼容名殿后，官方 API 与镜像边车链同构；旧 msvc 二进制对新 gnu 源无回退（升级走 omc catalog 通道重装）；镜像段读序尝试表单测补三层顺序断言，ome 段删桶后锚链失效的两个 gated 用例退役。

@@ -37,3 +37,8 @@
 - 文档门禁四件套绿。
 - 对线：codex 右侧（w3:p2）加 ohmycloud（w4:p1）双线，修正全落（见上节）。
 - **CI 验收（终态）**：run 34840170118 四岗全绿（macos aarch64、ubuntu linux、ubuntu windows-gnu 交叉、mirror-r2）；dev release 资产 ark-x86_64-pc-windows-gnu.exe 到货（历史 msvc 与 ome-* 残量资产留存即窗口期回退面）；桶 ark/dev 的 gnu 资产与 .sha256 边车双 200（curl 实测）。
+
+## 封版 v1.2.2（用户裁「继续」，stable 切 gnu 的封版时点）
+
+- 版本号 1.2.1 到 1.2.2（Cargo.toml 加 Cargo.lock）；CHANGELOG Unreleased 两条归 1.2.2（ome 兼容面收口加 D46 gnu 切换）；ROADMAP 阶段注记与 TODO 补封版。
+- 验收回执四件（tag CI 后补）：CI 四岗绿、stable 资产名清单、镜像 ark/stable 段 curl 200、digest 清单（ohmycloud catalog pin 更新用）。
