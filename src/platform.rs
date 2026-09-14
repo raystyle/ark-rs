@@ -224,12 +224,36 @@ pub fn user_env_write_blocked() -> bool {
     env_var_or("ARK_TEST_NO_PATH_REG", "OME_TEST_NO_PATH_REG").as_deref() == Some("1")
 }
 
-/// 路径是否位于系统临时目录下（canonicalize 双向尽力，失败退字面比较）。
-/// 闸的是「注册面」不是安装面：Temp 下装得（staging 本就常用 Temp），持久 PATH 不进。
+/// 路径是否位于系统临时目录下。闸的是「注册面」不是安装面：Temp 下装得
+/// （staging 本就常用 Temp），持久 PATH 不进。
 fn is_temp_path(dir: &Path) -> bool {
-    let norm = |p: &Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
-    let tmp = norm(&std::env::temp_dir());
-    norm(dir).starts_with(&tmp)
+    normalize(dir).starts_with(normalize(&std::env::temp_dir()))
+}
+
+/// 尽力归一（macOS 实证：`$TMPDIR` 是 `/var/folders/...`，真身在 `/private/var/...`；
+/// 不存在的子路径直接 canonicalize 会失败退字面，符号链接前缀对不上——从深往浅找
+/// 第一个可 canonicalize 的祖先，规范后拼回余段）。
+fn normalize(p: &Path) -> PathBuf {
+    let mut ancestor = p.to_path_buf();
+    let mut tail: Vec<std::ffi::OsString> = Vec::new();
+    loop {
+        match ancestor.canonicalize() {
+            Ok(c) => {
+                let mut out = c;
+                for seg in tail.iter().rev() {
+                    out = out.join(seg);
+                }
+                return out;
+            }
+            Err(_) => match (ancestor.parent(), ancestor.file_name()) {
+                (Some(parent), Some(name)) => {
+                    tail.push(name.to_os_string());
+                    ancestor = parent.to_path_buf();
+                }
+                _ => return p.to_path_buf(),
+            },
+        }
+    }
 }
 
 /// 将 dir 注册进用户 PATH；返回是否实际新增。
@@ -1204,6 +1228,31 @@ mod tests {
         let deploy = self_deploy_target().expect("部署位应可解析");
         assert_eq!(alias.parent(), deploy.parent(), "别名与部署位同目录");
         assert!(alias.ends_with("ome"), "别名文件名: {}", alias.display());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn 路径归一_符号链接前缀对齐() {
+        // macOS 实证形态同构复刻：$TMPDIR 为链接形、canonicalize 后为真身形；
+        // 不存在的子路径经归一后两形前缀必须对齐（CI mac 岗红根因）
+        use std::os::unix::fs::symlink;
+        let base = std::env::temp_dir();
+        let real = base.join(format!("ark-norm-real-{}", std::process::id()));
+        let link = base.join(format!("ark-norm-link-{}", std::process::id()));
+        std::fs::create_dir_all(&real).expect("建真身");
+        let _ = std::fs::remove_file(&link);
+        symlink(&real, &link).expect("建符号链接");
+        let via_link = link.join("probe").join("zig");
+        let via_real = real.join("probe").join("zig");
+        assert!(
+            normalize(&via_link).starts_with(&normalize(&real)),
+            "链接形子路径应归一到真身前缀: {:?} vs {:?}",
+            normalize(&via_link),
+            normalize(&real)
+        );
+        assert_eq!(normalize(&via_link), normalize(&via_real), "两形同点");
+        let _ = std::fs::remove_file(&link);
+        let _ = std::fs::remove_dir_all(&real);
     }
 
     #[test]
