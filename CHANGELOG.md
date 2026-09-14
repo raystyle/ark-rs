@@ -2,6 +2,10 @@
 
 > 版本里程碑。SemVer `vMAJOR.MINOR.PATCH`。
 
+## [Unreleased]
+
+- **ome 兼容面收口**（D41 过渡窗关闭；全舰队 ome 水位清零，2026-09-14 omc 舰队对账回执）：CI 撤 ome-* compat 资产双附与 ome/ 段灌写（seed.py 撤 `--ome-*` 参数族，UA 统一 ark-seed）；selfdeploy 停建 `ome` 别名并在 init 与 self update 顺带清理既有副本（幂等 best-effort，Windows 文件占用留待下次再收，lan-win 残留副本随下次升级自动收）。引擎读面不动：`is_ome_self` 双接受与镜像段 ome/ 读回落保留，历史 release 的 ome-* 资产与桶内残量仍可解析。
+
 ## [1.2.1] - 2026-09-13
 
 patch：D45 sync 的 tools seq 消费收口（对岸 CF 三犯根治的端上认领面）。
