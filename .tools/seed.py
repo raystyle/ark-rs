@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""seed.py - 软件资产域对账（--plan 只读）与 ome 自产产物灌段（D27/D41 路线 A）。
+"""seed.py - 软件资产域对账（--plan 只读）与 ark 自产产物灌段（D27/D41 路线 A）。
 D37 完全解耦后资产播种与清单三件套运营归 ohmycloud catalog-seed，本件留对账面与自产段面。
 
 口径（R014 延续）：
@@ -19,7 +19,6 @@ D37 完全解耦后资产播种与清单三件套运营归 ohmycloud catalog-see
   uv run --script .tools/seed.py                   # diff 加上传（需 R2_* 环境变量与 rclone）
   uv run --script .tools/seed.py --ark-dev --tag dev         # 路线 A：dev 产物灌 ark/dev 沙滚段（主名）
   uv run --script .tools/seed.py --ark-stable --tag v1.0.0   # 路线 A：v* 正式产物灌 ark/stable 段（主名）
-  uv run --script .tools/seed.py --ome-dev --tag dev         # 兼容写：灌 ome/dev 段配 ome-* 资产名（存量机，水位清零后撤）
 
 环境变量：R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT / R2_BUCKET（上传必需）；
 GH_TOKEN 可选（公开仓不需要）。
@@ -76,15 +75,14 @@ def _catalog_path() -> Path:
 DOMAIN = "https://env.ohmygh.com"
 EVERGREEN_EXTRACT = {"ome-self", "ark-self", "vsbuild", "rustup"}
 PLATFORMS = (("win", "", ""), ("linux", "linux_", "linux_"), ("mac", "mac_", "mac_"))
-# 路线 A 的本仓三资产（CI 目标三元组；selfupdate 资产名同源）：主名 ark-*（D41 B），
-# 兼容名 ome-* 配 ome/ 段（存量机水位清零后随停段撤除）
+# 路线 A 的本仓三资产（CI 目标三元组；selfupdate 资产名同源）：主名 ark-*。
+# ome-* 兼容名与 ome/ 段已撤（全舰队 ome 水位清零，2026-09-14 收口）。
 _TRIPLES = (
     "x86_64-pc-windows-msvc.exe",
     "x86_64-unknown-linux-gnu",
     "aarch64-apple-darwin",
 )
 ARK_ASSETS = [f"ark-{t}" for t in _TRIPLES]
-OME_ASSETS = [f"ome-{t}" for t in _TRIPLES]
 RCLONE_ENV = {
     "RCLONE_CONFIG_SEED_TYPE": "s3",
     "RCLONE_CONFIG_SEED_PROVIDER": "Cloudflare",
@@ -107,7 +105,7 @@ def http_get(url: str, timeout: int = 30) -> tuple[int, bytes]:
 
 
 def http_head(url: str, timeout: int = 30) -> int:
-    req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "ome-seed"})
+    req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "ark-seed"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.status
@@ -131,7 +129,7 @@ def sidecar_text(sha_hex: str, asset: str) -> str:
 
 def collect() -> tuple[list[dict], list[dict], list[str]]:
     """catalog -> （可入镜对象, pending_sha 队列, evergreen 排除名单）"""
-    # 清单源用到时才解析（路线 A 的 --ome-dev/--ome-stable 不需要清单，不得因缺件而失败）
+    # 清单源用到时才解析（路线 A 的 --ark-* 不需要清单，不得因缺件而失败）
     data = tomllib.loads(_catalog_path().read_text(encoding="utf-8"))["tools"]
     objs: list[dict] = []
     pending: list[dict] = []
@@ -224,24 +222,18 @@ def main() -> int:
     ap.add_argument("--plan", action="store_true", help="只 diff 不上传")
     ap.add_argument("--ark-dev", action="store_true", help="路线 A：dev 产物灌 ark/dev 沙滚段（主名）")
     ap.add_argument("--ark-stable", action="store_true", help="路线 A：v* 正式产物灌 ark/stable 段（主名）")
-    ap.add_argument("--ome-dev", action="store_true", help="兼容写：灌 ome/dev 段配 ome-* 资产名")
-    ap.add_argument("--ome-stable", action="store_true", help="兼容写：灌 ome/stable 段配 ome-* 资产名")
     ap.add_argument("--tag", default="dev", help="路线 A 的 release tag")
     args = ap.parse_args()
     dry = args.plan
 
-    if args.ark_dev or args.ark_stable or args.ome_dev or args.ome_stable:
+    if args.ark_dev or args.ark_stable:
         repo = "raystyle/ark_rs"
-        # 段与资产族配套（D41 B）：ark/ 段配 ark-* 主名，ome/ 段配 ome-* 兼容名；
-        # CI 对两族各跑一次（双写双段同内容），停 ome/ 段判据为存量机水位清零
+        # 段与资产族配套：ark/ 段配 ark-* 主名。
+        # ome/ 段与 ome-* 兼容名已停写（全舰队 ome 水位清零，2026-09-14 收口）。
         if args.ark_dev:
             segs, assets, mode = ("ark/dev",), ARK_ASSETS, "ark-dev"
-        elif args.ark_stable:
-            segs, assets, mode = ("ark/stable",), ARK_ASSETS, "ark-stable"
-        elif args.ome_dev:
-            segs, assets, mode = ("ome/dev",), OME_ASSETS, "ome-dev"
         else:
-            segs, assets, mode = ("ome/stable",), OME_ASSETS, "ome-stable"
+            segs, assets, mode = ("ark/stable",), ARK_ASSETS, "ark-stable"
         results = {"synced": 0, "uploaded": 0, "failed": 0}
         with tempfile.TemporaryDirectory() as td:
             tdp = Path(td)
