@@ -4,16 +4,17 @@
 
 ## 当前目标
 
-D43 zig 版本去锁（2026-09-13 立项，用户裁定「不再锁定 zig 版本」）：zig 去 pin 转 latest 滚动，引擎三件（resolve 分支 a 泛化、布局 {version} 占位与 glob 探测、官方 sha 直值锚）加数据面配合项；计划见 `PLAN.md`。
+D46 Windows 构建切 gnu 交叉编译（2026-09-14 用户裁定，摆脱 VC）：CI 交叉岗替换 msvc 岗、self update 资产读序三层（gnu 主名、msvc 回退、ome 兼容）；stable 封版另裁，版本号不动。
 
 ## 任务进度清单
 
 | 任务项 | 进度 | 说明 | 日期 |
 | --- | --- | --- | --- |
+| D46：Windows 构建切 gnu 交叉 | 已完成 | CI 交叉岗（ubuntu 加 mingw-w64）产 ark-x86_64-pc-windows-gnu.exe，msvc 岗退役；selfupdate 三层读序（官方与镜像同构，单测三层顺序断言）；本机交叉复验 PE32+ 12.4MB；mirror_fallback 死用例补收（ome 段删桶后锚链 404 的双用例退役）；dev 滚动源自动出 gnu 资产 | 2026-09-14 |
 | D43：zig 版本去锁 | 已完成 | v1.2.0 已发：对线两轮 CONFIRM（Z1 glob 双分隔符修复防幂等静默失效）；对岸数据 dispatch 后 WSL 端到端绿（query latest、镜像优先官方锚校验、占位布局定版、幂等二连/update skip、zig version 0.16.0 跑通） | 2026-09-13 |
 | D44：下载链反转镜像优先 | 已完成 | v1.1.1 已发版（tag CI 三平台绿、stable 段 200、WSL self update 到位）；对线两轮（F1-F7 加 G1-G4）全修 CONFIRM；WSL 实证：1.1.1 到位、go mirror 节 env 加 goproxy 语义键落 GOENV（[OK] mirror 已写）、清缓存重装实证「已下载（镜像优先）」 | 2026-09-13 |
 | D42：运行时源中国镜像统一落 manifest | 已完成 | 全链收官：主体 `d0e6104` 加对线三轮 CONFIRM 修复，**v1.1.0 已发版**（tag CI 三平台绿、双 stable 段 200、WSL self update 到位）；omc 四件数据就绪（manifest mirror 三节 seq 24、rust POSIX 字段、镜像桶 rustup-init、对岸 lint 谓词）；**WSL 验收 A13 六件断言 PASS**（对岸已撤 bootstrap 兜底后仍绿，正实证；A2 node、A16 python、E1/E2 同绿）。收尾复验：bun 1.4.1 三平台 pin 落地后 install 绿且 **mirror 链闭环**（bunfig 由 mirror 节写）；officecli probe 修复生效（1.0.149）；omc 仍解析 v0.3.2（云端 pin 疑未 dispatch，已回执对岸核对）。wsl-verify 其余红项归对岸 deploy 链总台重构（对岸回执确认非 ark 面） | 2026-09-13 |
-| D41：更名 Ark 迁移（运营期） | 已完成 | 四阶段全收官：A/B/C 逐批对线推 main CI 绿；D 文档批加 **v1.0.0 已发版**（tag CI 绿、release 六资产双名同 digest、双 stable 段 200、部署位验收全绿含 replace_exe 首落修复 `ef44915`）；omc 三件批切回执已至（tools.ark 入册 seq 10、deploy 全切 ark、lan-linux 实证通）。过渡期运营收口完成（2026-09-14）：全舰队 ome 水位清零（omc 舰队对账双零，残尾 lan-mac 与 lan-linux2 已升 ark 1.2.1 清 ome）；停 ome/ 面全线闭环——本仓四提交已推（80c3923 至 ec8d2dc：CI 撤双附、seed 撤灌段、别名停建清理、文档同步），ohmycloud 侧配套（catalog 删 tools.ome 节、extract 切 ark-self、omc 0f20eb2 catalog-seed 停 ome/catalog 双发与 seed-seq 切主键），桶 ome/ 段 18 对象删净零残留（ark/catalog 主键 200 无连带）；oma 段同日删净（oma/stable 与 oma/dev 12 对象，omc 0c8d068 账面 399 减 387 零残留，域面 404，hst 回执零影响，与 ome/ 段合计 30 对象全清）；v1.2.2+ 待办：引擎 ome 读回落面撤除（cloud catalog 兼容键与 selfupdate 镜像段 ome 回落；EVERGREEN ome-self 白名单值随历史副本兼容保留） | 2026-09-14 |
+| D41：更名 Ark 迁移（运营期） | 已完成 | 四阶段全收官：A/B/C 逐批对线推 main CI 绿；D 文档批加 **v1.0.0 已发版**（tag CI 绿、release 六资产双名同 digest、双 stable 段 200、部署位验收全绿含 replace_exe 首落修复 `ef44915`）；omc 三件批切回执已至（tools.ark 入册 seq 10、deploy 全切 ark、lan-linux 实证通）。过渡期运营收口完成（2026-09-14）：全舰队 ome 水位清零（omc 舰队对账双零，残尾 lan-mac 与 lan-linux2 已升 ark 1.2.1 清 ome）；停 ome/ 面全线闭环，本仓四提交已推（80c3923 至 ec8d2dc：CI 撤双附、seed 撤灌段、别名停建清理、文档同步），ohmycloud 侧配套（catalog 删 tools.ome 节、extract 切 ark-self、omc 0f20eb2 catalog-seed 停 ome/catalog 双发与 seed-seq 切主键），桶 ome/ 段 18 对象删净零残留（ark/catalog 主键 200 无连带）；oma 段同日删净（oma/stable 与 oma/dev 12 对象，omc 0c8d068 账面 399 减 387 零残留，域面 404，hst 回执零影响，与 ome/ 段合计 30 对象全清）；v1.2.2+ 待办：引擎 ome 读回落面撤除（cloud catalog 兼容键与 selfupdate 镜像段 ome 回落；EVERGREEN ome-self 白名单值随历史副本兼容保留） | 2026-09-14 |
 | D35/D36：R015 标准定档与管辖边界 | 已完成 | R015 成文（发布/更新/播种三流程唯一权威，互指 R001/R014/S006/R004）；管辖两域分治：ome 自理代码功能发版自更新，清单与资源运营托管 omc（承接形态由 omc 定，本仓流水不撤）；PRD D35/D36、AGENTS 方案索引与边界、R014 六.7、INDEX 挂链 | 2026-09-10 |
 | 签名播种流水 B 承接双轨切换（omc 回执选 B） | 已完成 | 全链闭环：工具公钥复制（0501e35）、catalog-seed 流水建、用户灌三枚 Secret（零泄露）、首跑 success（34483609407）云端三件套新签重灌；本仓独立验签 signature=valid 后撤退完成：Secret 删、seed-mirror 签名步撤、seed.py 摘 catalog 本体上传（防竞态），seed-mirror 只留软件资产域；路线 A 与 catalog_lint 发布门不移交 | 2026-09-10 |
 | 批 3：清单数据权威与发布门迁 omc（D37 完全解耦） | 已完成 | omc 侧：权威 toml 入仓（47 工具初值复制）、lint 门 vitest 四规则进 CI 首步、流水源切其仓权威、首发 run 34485506081 全绿（云端 sha 零漂移、端上验签 valid）；批 2 资产域 34485299491 success（101 域面 100 同步）。ome 侧撤退：权威 catalog/tools.toml 删除、seed-mirror.yml 整撤、seed.py 留对账面（源回退仓库件到用户数据副本）、catalog_lint 真仓测退役；pin 定案落码（update lock=false、pin 临时本地锁、drift CTA 滞后提示） | 2026-09-10 |
