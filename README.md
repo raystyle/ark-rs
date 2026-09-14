@@ -27,7 +27,7 @@ cargo build --release
 `ark init` 自部署：二进制进用户程序目录（Windows `%LOCALAPPDATA%\Programs\ark`，POSIX `~/.local/bin`）、同步 catalog、注册 PATH，幂等可重跑。重开终端后 `ark doctor` 验证。
 
 - 被管理工具装在 EnvRoot：Windows 默认 `D:\ohmyenv`（无 D: 盘则 `C:\ohmyenv`），Linux / macOS 默认 `~/.local/share/ohmyenv`；可用 `--env-root` 或 `ARK_ROOT` 改（读回旧名 `OHMYENV_ROOT`）
-- ark 自身装用户目录，与 EnvRoot 解耦；旧 `ome` 部署位与旧环境变量读回兼容，`ome` 以别名过渡可用
+- ark 自身装用户目录，与 EnvRoot 解耦；旧 `ome` 部署位与旧环境变量读回兼容（`ome` 别名已停建，2026-09-14 全舰队水位清零收口）
 - 升级自身：`ark self update`（dev / stable / git 三通道）
 
 ## install 链

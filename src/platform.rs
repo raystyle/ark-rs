@@ -149,7 +149,7 @@ fn data_dir() -> PathBuf {
     })
 }
 
-/// 自部署目标路径（D41：ark 接管部署位，旧 ome 位处置与 `ome` 别名过渡归 C 阶段）。
+/// 自部署目标路径（D41：ark 接管部署位；旧 ome 位与 `ome` 别名已于 2026-09-14 收口停建）。
 /// Windows：`%LOCALAPPDATA%\Programs\ark\ark.exe`
 /// Linux / macOS：`~/.local/bin/ark`
 pub fn self_deploy_target() -> Result<PathBuf, String> {
@@ -180,7 +180,7 @@ pub fn env_var_or(primary: &str, fallback: &str) -> Option<String> {
 }
 
 /// 旧 ome 部署位（D41 C 接管清单：Windows `Programs\ome`，在位时 Some）。
-/// POSIX 旧位 `~/.local/bin/ome` 即别名落点，由别名副本自然接管、无需清理。
+/// POSIX 旧位 `~/.local/bin/ome` 即别名落点，由 `remove_ome_alias` 清理。
 pub fn legacy_deploy_dir() -> Option<PathBuf> {
     #[cfg(windows)]
     {
@@ -193,12 +193,28 @@ pub fn legacy_deploy_dir() -> Option<PathBuf> {
     }
 }
 
-/// `ome` 别名落点（D41 C：部署位同目录 exe 副本，init 与 self update 重建；
-/// 旧 PATH 条目清理后 `ome` 仍可调的过渡载体，存量机水位清零后随停段撤）。
+/// `ome` 别名落点（D41 C 过渡载体已停建，2026-09-14 全舰队 ome 水位清零收口；
+/// 落点保留供 `remove_ome_alias` 定位清理既有副本）。
 pub fn ome_alias_target() -> Result<PathBuf, String> {
     let t = self_deploy_target()?;
     let name = if cfg!(windows) { "ome.exe" } else { "ome" };
     Ok(t.with_file_name(name))
+}
+
+/// 清理 `ome` 别名副本（幂等：不在位返回 false 静默；best-effort：失败返回 Err 由调用方告警，
+/// Windows 文件占用时留待下次 init / self update 再收）。
+pub fn remove_ome_alias() -> Result<bool, String> {
+    let alias = ome_alias_target()?;
+    remove_file_if_exists(&alias)
+}
+
+/// 删除文件，不存在视为已清理（幂等）。返回是否实际删除。
+fn remove_file_if_exists(path: &Path) -> Result<bool, String> {
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(true),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(format!("{}: {e}", path.display())),
+    }
 }
 
 /// 用户面写入总闸门（测试隔离）：`ARK_TEST_NO_PATH_REG=1`（读回 `OME_TEST_NO_PATH_REG`）时，**所有**用户环境写入面
@@ -1157,7 +1173,7 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn ome别名_部署位同目录() {
-        // D41 C：别名 = 部署位同目录 exe 副本（旧 PATH 条目清后 ome 仍可调）
+        // D41 C 收口：别名停建，落点仅供清理定位
         let alias = ome_alias_target().expect("别名应可解析");
         let deploy = self_deploy_target().expect("部署位应可解析");
         assert_eq!(alias.parent(), deploy.parent(), "别名与部署位同目录");
@@ -1171,6 +1187,16 @@ mod tests {
         let deploy = self_deploy_target().expect("部署位应可解析");
         assert_eq!(alias.parent(), deploy.parent(), "别名与部署位同目录");
         assert!(alias.ends_with("ome"), "别名文件名: {}", alias.display());
+    }
+
+    #[test]
+    fn 清理文件_幂等双态() -> Result<(), String> {
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let f = dir.path().join("ome");
+        std::fs::write(&f, b"x").map_err(|e| e.to_string())?;
+        assert!(remove_file_if_exists(&f)?, "在位应删并返回 true");
+        assert!(!remove_file_if_exists(&f)?, "不在位应静默返回 false");
+        Ok(())
     }
 
     #[cfg(windows)]

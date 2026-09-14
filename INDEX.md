@@ -69,7 +69,7 @@
 | `tests\` | 集成测试（逐文件职责见下节代码文件位置） |
 | `.tools\` | 可复用脚本归档（清单见 `.tools\README.md`：import-catalog.ps1、seed.py、catalog-sign、inject-guide-d25.py、inject-probe-d28.py、seed-inventory.py、md-ref-scan.py、md-heading-scan.py、mdcharlint.py、md-replace.py、md-ref-allow.txt） |
 | `docs\` | proven/research/references/guide/mistakes/diary 六类 |
-| `bin\` | init 产物（self-deploy 兼容别名）（ark.exe 与 ome 别名同目录，注册进用户 PATH；git 忽略；D41 前为 ome.exe） |
+| `bin\` | init 产物（ark.exe 注册进用户 PATH；git 忽略；D41 前为 ome.exe，ome 别名 2026-09-14 停建清理） |
 
 ## 项目日记
 
@@ -136,8 +136,8 @@
 | `src\platform.rs` | 平台抽象层：EnvRoot 默认路径、PATH 管理、环境变量读写与撤除（win 注册表 / POSIX profile env 块）、环境变量展开、official 判定、self-deploy 目标 |
 | `src\toolver.rs` | 已装版本探测（探测参数与正则读 catalog `probe_args`/`probe_pattern` 字段，D28 迁移；exe 路径解析与 PATH 现查） |
 | `src\status.rs` | status 三态对照 |
-| `src\selfdeploy.rs` | 自部署到用户程序目录（Windows `%LOCALAPPDATA%\Programs\ark`，接管旧 ome 位并留 ome 别名）+ catalog 同步到用户数据目录 |
-| `src\selfupdate.rs` | ark 自升级三通道（dev 滚动 / stable 正式版 / git 源码）：digest 对比后替换自部署目标与 ome 别名；官方失败回落镜像对应通道（段读序 ark/ 先 ome/ 回落；latest 段已退役）；随升级搬迁旧元数据七件套 |
+| `src\selfdeploy.rs` | 自部署到用户程序目录（Windows `%LOCALAPPDATA%\Programs\ark`，接管旧 ome 位；ome 别名 2026-09-14 停建并顺带清理）+ catalog 同步到用户数据目录 |
+| `src\selfupdate.rs` | ark 自升级三通道（dev 滚动 / stable 正式版 / git 源码）：digest 对比后替换自部署目标（ome 别名已停建，升级顺带清理存量副本）；官方失败回落镜像对应通道（段读序 ark/ 先 ome/ 回落；latest 段已退役）；随升级搬迁旧元数据七件套 |
 | `src\vsbuild.rs` | VS Build Tools 接管（evergreen 引导器、gsudo 提权、机器级 PATH、cl.exe 幂等探测；语义见 R001 六） |
 | `src\rustup.rs` | Rust 接管（rustup 引导器型：rsproxy 直链 stable 滚动、cargo sparse 镜像全平台；Windows RUSTUP_HOME/CARGO_HOME 重定位 EnvRoot，POSIX 系统标准位 `~/.rustup` 与 `~/.cargo`（D42）；自 set-rust.ps1 迁移） |
 | `src\docker.rs` | Docker Engine 接管（自 set-docker.ps1 迁移：static zip + Windows 服务注册 + daemon.json 合并 + compose 插件 + 机器级 PATH；gsudo 提权；与 vsbuild 差异在有 pin 非 evergreen） |

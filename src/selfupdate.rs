@@ -351,12 +351,10 @@ fn replace_deployed_and_current(new_file: &Path) -> Result<PathBuf, String> {
     if !path_same(&current, &deploy) && current.exists() {
         let _ = replace_exe(&current, new_file);
     }
-    if let Ok(alias) = platform::ome_alias_target() {
-        if !path_same(&alias, &deploy) {
-            if let Err(e) = replace_exe(&alias, new_file) {
-                eprintln!("[WARN] ome 别名重建失败（不拦升级）: {e}");
-            }
-        }
+    // D41 C 收口（2026-09-14）：ome 别名停建，升级顺带清理既有副本（水位清零；
+    // 当前正以别名运行时 Windows 删不动，warn 留待下次再收）
+    if let Err(e) = platform::remove_ome_alias() {
+        eprintln!("[WARN] ome 别名清理失败（不拦升级，下次再收）: {e}");
     }
     Ok(deploy)
 }
