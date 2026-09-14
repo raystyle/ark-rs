@@ -224,12 +224,29 @@ pub fn user_env_write_blocked() -> bool {
     env_var_or("ARK_TEST_NO_PATH_REG", "OME_TEST_NO_PATH_REG").as_deref() == Some("1")
 }
 
+/// 路径是否位于系统临时目录下（canonicalize 双向尽力，失败退字面比较）。
+/// 闸的是「注册面」不是安装面：Temp 下装得（staging 本就常用 Temp），持久 PATH 不进。
+fn is_temp_path(dir: &Path) -> bool {
+    let norm = |p: &Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
+    let tmp = norm(&std::env::temp_dir());
+    norm(dir).starts_with(&tmp)
+}
+
 /// 将 dir 注册进用户 PATH；返回是否实际新增。
 pub fn add_user_path(dir: &Path) -> Result<bool, String> {
     // O5（S017）：测试隔离开关——沙盒 EnvRoot 的集成测试不得污染真实注册面/Profile
     // （M002「沙盒漏写面」同型回归的根治；与 ARK_TEST_REAL/MIRROR 同为闸门口径）
     if user_env_write_blocked() {
         eprintln!("[INFO] ARK_TEST_NO_PATH_REG=1：跳过用户 PATH 注册（测试隔离）");
+        return Ok(false);
+    }
+    // temp 闸（2026-09-14，ohmycloud 舰队回执报障）：临时 envroot 的探测/测试装不得把
+    // Temp 段写进用户持久 PATH（lan-win 实证：注册表沉淀 Temp 下 zig 与 jq 多条）。
+    if is_temp_path(dir) {
+        eprintln!(
+            "[WARN] 临时目录不注册用户 PATH（探测/测试装不落持久面）: {}",
+            dir.display()
+        );
         return Ok(false);
     }
     #[cfg(windows)]
@@ -1187,6 +1204,13 @@ mod tests {
         let deploy = self_deploy_target().expect("部署位应可解析");
         assert_eq!(alias.parent(), deploy.parent(), "别名与部署位同目录");
         assert!(alias.ends_with("ome"), "别名文件名: {}", alias.display());
+    }
+
+    #[test]
+    fn temp路径判定_闸注册面() {
+        let tmp = std::env::temp_dir();
+        assert!(is_temp_path(&tmp.join("ark-probe").join("zig")), "temp 子路径应命中闸");
+        assert!(!is_temp_path(&dirs::home_dir().expect("home").join(".local").join("bin")), "正式泊位不误伤");
     }
 
     #[test]

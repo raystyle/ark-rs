@@ -102,7 +102,8 @@
 | 2026-09-12 | `docs\diary\2026-09-12-D41立项更名Ark迁移计划.md` | D41 立项更名 Ark：七点口径与四阶段迁移计划落 PLAN/PRD/GOAL/TODO；oma heal hooks 新形态知识转递（hook 在但 shim 缺失） |
 | 2026-09-13 | `docs\diary\2026-09-13-D42运行时源镜像统一落manifest.md` | D42 manifest mirror 节与 rust POSIX 接管：七键 DSL、A13 四件对齐、Windows 真机全链实证、uv win 发现位实证与 M029 |
 | 2026-09-14 | `docs\diary\2026-09-14-ome兼容面收口跨仓对线与CI撤双附.md` | D41 ome 兼容面收口：跨仓三轮对线、CI 撤双附、别名停建清理、桶 30 对象全清终态 |
-| 2026-09-14 | `docs\diary\2026-09-14-D46windows构建切gnu交叉编译.md` | D46 Windows 构建切 gnu 交叉：CI 交叉岗、self update 三层读序、codex 与 ohmycloud 双线对线修正 |
+| 2026-09-14 | `docs\diary\2026-09-14-D46windows构建切gnu交叉编译.md` | D46 Windows 构建切 gnu 交叉：CI 交叉岗、self update 三层读序、codex 与 ohmycloud 双线对线修正，v1.2.2 封版 |
+| 2026-09-14 | `docs\diary\2026-09-14-临时envroot注册PATH闸.md` | 舰队报障修复：add_user_path 设 temp 闸，探测与沙盒装不落用户持久 PATH |
 
 ## 错误速查分类
 

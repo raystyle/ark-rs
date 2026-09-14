@@ -2,6 +2,10 @@
 
 > 版本里程碑。SemVer `vMAJOR.MINOR.PATCH`。
 
+## [Unreleased]
+
+- **临时 envroot 的 PATH 注册闸**（ohmycloud 舰队回执报障：lan-win 注册表沉淀 Temp 下 zig 与 jq 多条）：`add_user_path` 拒绝系统临时目录下的注册面（install 与 rustup 与 selfdeploy 全调用面一处闸），探测与沙盒装的 Temp 段不再进用户持久 PATH；profile 注册语义的集成测试沙盒挪出系统 temp（`target/` 下，tempdir 自动清理）。
+
 ## [1.2.2] - 2026-09-14
 
 patch 加 minor 面：ome 兼容面收口（D41 过渡窗关闭）与 **D46 Windows 构建切 gnu 交叉编译**（用户裁定摆脱 VC；stable 通道自此 gnu 资产）。

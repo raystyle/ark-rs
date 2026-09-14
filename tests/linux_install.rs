@@ -13,7 +13,10 @@ use std::path::{Path, PathBuf};
 use assert_cmd::Command;
 
 fn sandbox() -> (tempfile::TempDir, PathBuf, PathBuf) {
-    let dir = tempfile::tempdir().expect("创建沙盒失败");
+    // home 挪出系统 temp（2026-09-14）：add_user_path 设 temp 闸（临时 envroot 探测装不落
+    // 持久 PATH），profile 注册语义的受控用例需要非 temp 沙盒；target/ 在 gitignore 内且
+    // tempdir 自动清理
+    let dir = tempfile::tempdir_in("target").expect("创建沙盒失败");
     let home = dir.path().join("home");
     fs::create_dir_all(&home).expect("创建 HOME 失败");
     let env_root = home.join(".local").join("share").join("ohmyenv");
