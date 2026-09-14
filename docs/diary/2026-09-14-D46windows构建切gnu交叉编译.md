@@ -41,4 +41,5 @@
 ## 封版 v1.2.2
 
 - 版本号 1.2.1 到 1.2.2（Cargo.toml 加 Cargo.lock）；CHANGELOG Unreleased 两条归 1.2.2（ome 兼容面收口加 D46 gnu 切换）；ROADMAP 阶段注记与 TODO 补封版。
-- 验收回执四件（tag CI 后补）：CI 四岗绿、stable 资产名清单、镜像 ark/stable 段 curl 200、digest 清单（ohmycloud catalog pin 更新用）。
+- 验收回执四件（终态）：tag run 34841367924 四岗绿；stable release 三资产 ark-x86_64-pc-windows-gnu.exe、ark-x86_64-unknown-linux-gnu、ark-aarch64-apple-darwin（正式版无残量，干净）；镜像 ark/stable 段 gnu 资产与边车双 200；digest 清单入 ohmycloud 回执。
+- 曲折实录：首推 tag run 34841367924 前身（34841035162）红在 linux 岗文档门禁——diary 两处括号标题，本地门禁四件套跑子集漏 heading-scan（M006 第八犯，已接编）；修标题重指 tag（c0fcfc7 到 d4e8571）后全绿。
