@@ -17,9 +17,23 @@
 - 旧 msvc 二进制对新 gnu 源：读序无 gnu 名全 miss，无回退（有意），升级走 omc catalog 通道重装。
 - 版本号不动、不推 tag（stable 封版另裁）；推 main 后 dev 滚动源自动出 gnu 资产。
 
+## 对线双线回执与修正（第 1 轮）
+
+- **ohmycloud（H1 必修）**：build.yml win 岗 asset 名丢 .exe 后缀（与 selfupdate 主名不逐字一致则 win 主名永久 miss）。修：补 .exe。
+- **codex 右侧对线（F1 必修加 G1-G5）**：
+  - F1：seed.py `_TRIPLES` 首项仍 msvc 名，镜像灌段面等于没落地。修：切 gnu 名；`download_asset` 三态化（ok/skip/fail），自产灌段 404 记 skip（D46 前 tag 重灌窗口期，旧 tag 无 gnu 资产不红）。
+  - G1：Windows 的 ome 兼容名随 gnu 三元组派生从未存在（历史 ome 资产是 msvc 名），该层 Windows 恒 miss、窗口已由 msvc 回退层覆盖。修：注释对齐实况。
+  - G2：official_asset_meta 每层各拉一次 release JSON。修：单拉一次本地按名序匹配（asset_in_release 拆分）。
+  - G3：native 岗测试步与构建步编译目录分叉（依赖树编两遍）。修：测试步带 --target 复用缓存。
+  - G4：文档义务三处（GOAL 当前目标、INDEX diary 一览两笔漏登属 G004 同型二犯、PRD 状态先行中）。修：全补。
+  - G5：doctor 探针仍硬编码 msvc 名（域通探针 404 容忍不误报但与主名不同源）。修：切 gnu 名同步 :897 断言；白名单补 gnu 名断言；asset_msvc_fallback 补非 windows None 门控单测。
+- 四问答复收悉：裸环境实证（cc crate 自动探测 mingw 交叉器）、桶内 ark 段 msvc 边车双 200（回退链有效）、用例退役无异议、lan-win 升级走 omc 通道（ark 段 msvc 旧对象保留待舰队升级完再清）。
+- 修后验证：cargo test --release 138 全绿；md 门禁四件套绿；fixup 并入原两提交（c1ace26 feat 加 9ccaf72 docs）。
+
 ## 验证与对线
 
 - 本机交叉复验：cargo build --release --locked --target x86_64-pc-windows-gnu 一次过，PE32+ 12.4MB。
 - cargo test --release --locked 全绿（137 单测加集成面）。
 - 文档门禁四件套绿。
-- 对线：herdr 发 ohmycloud 会话复核 diff，回执后推 main，盯 CI 绿与 dev release 资产名列表回报。
+- 对线：codex 右侧（w3:p2）加 ohmycloud（w4:p1）双线，修正全落（见上节）。
+- **CI 验收（终态）**：run 34840170118 四岗全绿（macos aarch64、ubuntu linux、ubuntu windows-gnu 交叉、mirror-r2）；dev release 资产 ark-x86_64-pc-windows-gnu.exe 到货（历史 msvc 与 ome-* 残量资产留存即窗口期回退面）；桶 ark/dev 的 gnu 资产与 .sha256 边车双 200（curl 实测）。

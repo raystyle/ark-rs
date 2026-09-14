@@ -106,9 +106,11 @@
 
 > 当前目标的进程：只记录当前这一个目标的进行状态。
 
-- 当前目标：D46 Windows 构建切 gnu 交叉编译（2026-09-14 立项，用户裁定「摆脱 VC」）：CI 交叉岗替换 msvc 岗、self update 三层读序、msvc 回退名窗口期保供；锚点 PRD D46、TODO 任务行。CI 绿与 dev 资产到货后达成入历史。
+- 当前目标：无（D46 已达成入历史；下一目标待立项）。
 
 ## 历史
+
+| 2026-09-14 | D46 Windows 构建切 gnu 交叉编译，当日达成 | CI 交叉岗（ubuntu 加 mingw-w64）替换 msvc 岗，dev release 出 ark-x86_64-pc-windows-gnu.exe，桶 ark/dev 双 200；self update 三层读序（gnu 主名、msvc 回退、ome 兼容）官方镜像同构；codex 与 ohmycloud 双线对线（H1/F1/G1-G5 全修）当日闭环 |
 
 > 所有已完成目标的轨迹，按日期倒序。
 
