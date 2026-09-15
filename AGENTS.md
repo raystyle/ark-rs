@@ -4,7 +4,7 @@
 
 ## Commands
 
-意图与命令映射（参数与语义全表见 `README.md` 与 `PLAN.md`；功能原语口径 PRD D10/D15/D16：doctor/install/status 三原语，其余为派生面）：
+意图与命令映射（参数与语义全表见 `README.md`，`PLAN.md` 为历史规划档；功能原语口径见 PRD 冻结索引 D10/D15/D16：doctor/install/status 三原语，其余为派生面）：
 
 - 查版本：`ark query`（省略则全量；只解析不下载）
 - 装工具：`ark install`（省略则全量；下载到 EnvRoot，注册 PATH、写注册表与配置；工具参收逗号串）
@@ -47,8 +47,8 @@
 
 1. 本文件（五节合同）
 2. `PRD.md`（D01 至 D49 冻结决策索引）与 `docs/adr/README.md`（ADR-0001 起现行决策）
-3. `docs/requirements/README.md`（REQ 索引）与 `TODO.md`
-4. `README.md`（项目简介与命令）与 `PLAN.md`
+3. `docs/requirements/README.md`（REQ 索引；`TODO.md` 为历史任务档案）
+4. `README.md`（项目简介与命令；`PLAN.md` 为历史规划档案）
 5. `llms.txt`（agent 检索面：读序与代码文件位置；ADR-0001 批三起 INDEX 退役）
 6. 细则权威：数据模式 R001；清单标准 R015；测试 R004；选型 R005；协调 R014；元规范 G001 至 G004；错误模式查 ADR-0002 至 ADR-0006（原 M 系列并入，M0xx 编号附录内可检）
 7. `ROADMAP.md` / `CHANGELOG.md` 查阶段与历史；`docs/diary/` 当天钩子

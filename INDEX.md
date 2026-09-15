@@ -1,6 +1,6 @@
 # INDEX 已退役
 
-> **退役声明（ADR-0001 批三，2026-09-15）**：本文件职责已拆解：agent 检索面与代码文件位置迁 `llms.txt`（仓根）；编号索引迁各目录 README（references/research/guide/proven/diary）；错误速查迁 ADR（批四）。本页保留为历史档案，查文档先 `llms.txt` 与 `AGENTS.md` Read first。
+> **退役声明（ADR-0001，2026-09-15）**：本文件职责已拆解：agent 检索面与代码文件位置迁 `llms.txt`（仓根）；编号索引迁各目录 README（references/research/guide/proven/diary）；错误速查迁 ADR（批四）。本页保留为历史档案，查文档先 `llms.txt` 与 `AGENTS.md` Read first。
 
 迁向速查：
 
