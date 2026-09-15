@@ -106,9 +106,11 @@
 
 > 当前目标的进程：只记录当前这一个目标的进行状态。
 
-- 当前目标：D47 OfficeCLI fork 与 D48 oxvg CI 链双案（2026-09-15）：两 fork 分发链已通（v1.0.151 已发布、oxvg dev 六资产），余 catalog 滚版与 lan-win 实跑回执闭环。锚点 PRD D47/D48、TODO 任务行。
+- 当前目标：无（D47/D48 双案已达成入历史；下一目标待立项）。
 
 ## 历史
+
+| 2026-09-15 | D47 OfficeCLI fork 与 D48 oxvg CI 链双案达成 | OfficeCLI v1.0.151 发布（codex 两轮对线、selftest 冒烟、lan-win 实跑全绿）；oxvg v0.0.7 正式版（CI 面 CLI 一条线）；catalog 双节切 fork、镜像换血、舰队五端全齐；ark 侧解析链终验绿（officecli/oxvg 解析 URL 全指 fork releases） |
 
 | 2026-09-14 | D46 Windows 构建切 gnu 交叉编译，当日达成 | CI 交叉岗（ubuntu 加 mingw-w64）替换 msvc 岗，dev release 出 ark-x86_64-pc-windows-gnu.exe，桶 ark/dev 双 200；self update 三层读序（gnu 主名、msvc 回退、ome 兼容）官方镜像同构；codex 与 ohmycloud 双线对线（H1/F1/G1-G5 全修）当日闭环 |
 
