@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **update 漂移收口**（D49，ohmycloud 舰队分型对线实锤）：`ark update` 的 skip 判据从「云端无新版（resolve==pin）」扩为锁定漂移三态：本机一致才 skip；落后或未装真装 pin 版（旧判据在此 skip，挡住一票 installed 落后 pin 的真装机）；领先如实报并指数据面滚锁。status 的 HINT 文案「版本落后锁定」改「版本与锁定不一致」（判据为双向不等）。
 - **临时 envroot 的 PATH 注册闸**（ohmycloud 舰队回执报障：lan-win 注册表沉淀 Temp 下 zig 与 jq 多条）：`add_user_path` 拒绝系统临时目录下的注册面（install 与 rustup 与 selfdeploy 全调用面一处闸），探测与沙盒装的 Temp 段不再进用户持久 PATH；profile 注册语义的集成测试沙盒挪出系统 temp（`target/` 下，tempdir 自动清理）。
 
 ## [1.2.2] - 2026-09-14

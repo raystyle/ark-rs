@@ -44,7 +44,7 @@ cargo build --release
 ```powershell
 ark status                # 锁定 / 已装 / PATH 三态对照
 ark query ffmpeg --latest # 只解析最新版与资产，不下载
-ark update [名]           # 拉云端最新安装（锁定归云端数据面，不回写）
+ark update [名]           # 拉云端最新安装（锁定归云端数据面，不回写；本机落后锁定时补装锁定版，D49）
 ark pin [名]              # 查看 / 设置版本锁定（lock 为别名）
 ```
 

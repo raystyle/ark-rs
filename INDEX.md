@@ -105,6 +105,7 @@
 | 2026-09-14 | `docs\diary\2026-09-14-D46windows构建切gnu交叉编译.md` | D46 Windows 构建切 gnu 交叉：CI 交叉岗、self update 三层读序、codex 与 ohmycloud 双线对线修正，v1.2.2 封版 |
 | 2026-09-14 | `docs\diary\2026-09-14-临时envroot注册PATH闸.md` | 舰队报障修复：add_user_path 设 temp 闸，探测与沙盒装不落用户持久 PATH |
 | 2026-09-15 | `docs\diary\2026-09-15-双fork分发链落地.md` | OfficeCLI v1.0.151 发布（根因反转与 selftest 冒烟）与 oxvg CI 链（CI 面 CLI 一条线），双 fork 分发链通 |
+| 2026-09-15 | `docs\diary\2026-09-15-update漂移收口.md` | D49 update 三态判据（落后真装 pin 版）、HINT 文案对齐双向判据 |
 
 ## 错误速查分类
 
@@ -138,7 +139,7 @@
 | `src\extract.rs` | 解压/安装九分派 |
 | `src\envpath.rs` | 注册表用户 PATH 管理（re-export platform 的跨平台 PATH 管理） |
 | `src\platform.rs` | 平台抽象层：EnvRoot 默认路径、PATH 管理、环境变量读写与撤除（win 注册表 / POSIX profile env 块）、环境变量展开、official 判定、self-deploy 目标 |
-| `src\toolver.rs` | 已装版本探测（探测参数与正则读 catalog `probe_args`/`probe_pattern` 字段，D28 迁移；exe 路径解析与 PATH 现查） |
+| `src\toolver.rs` | 已装版本探测（探测参数与正则读 catalog `probe_args`/`probe_pattern` 字段，D28 迁移；exe 路径解析与 PATH 现查）；update 漂移三态 pin_drift（D49：一致 skip、落后补装、领先如实报） |
 | `src\status.rs` | status 三态对照 |
 | `src\selfdeploy.rs` | 自部署到用户程序目录（Windows `%LOCALAPPDATA%\Programs\ark`，接管旧 ome 位；ome 别名 2026-09-14 停建并顺带清理）+ catalog 同步到用户数据目录 |
 | `src\selfupdate.rs` | ark 自升级三通道（dev 滚动 / stable 正式版 / git 源码）：digest 对比后替换自部署目标（ome 别名已停建，升级顺带清理存量副本）；官方失败回落镜像对应通道（段读序 ark/ 先 ome/ 回落；latest 段已退役）；Windows 主名自 D46 切 gnu、msvc 回退名窗口期次试（旧 msvc 源保供）、ome 兼容殿后；随升级搬迁旧元数据七件套 |

@@ -177,6 +177,31 @@ pub fn parse_version(tool: &Tool, output: &str) -> Option<String> {
     None
 }
 
+/// update 的锁定漂移三态（D49）：installed 探针值对 catalog pin 的对照。
+/// 解析失败保守按 Behind（补装 pin 版自愈，不静默跳过）。
+#[derive(Debug, PartialEq, Eq)]
+pub enum PinDrift {
+    /// 本机与锁定一致：skip「已是最新」（原行为）
+    Current,
+    /// 本机落后锁定（或未装）：云端无新版也要真装 pin 版——旧判据在此 skip，
+    /// 挡住一票 installed 落后 pin 的真装机（ohmycloud 舰队分型实锤的 a 形态）
+    Behind,
+    /// 本机领先锁定：保持现状如实报，消提示需数据面滚锁
+    Ahead,
+}
+
+/// 漂移判定（纯函数）：None 探针（未装）按 Behind 处理（补装自愈）。
+pub fn pin_drift(installed: Option<&str>, pin: &str) -> PinDrift {
+    let Some(v) = installed else {
+        return PinDrift::Behind;
+    };
+    match (crate::resolve::version_key(v), crate::resolve::version_key(pin)) {
+        (Some(i), Some(p)) if i == p => PinDrift::Current,
+        (Some(i), Some(p)) if i > p => PinDrift::Ahead,
+        _ => PinDrift::Behind,
+    }
+}
+
 /// 探测已装版本：exe 不存在直接 None；运行 exe 取首行非空输出按 probe_pattern 解析。
 pub fn installed_version(exe: &Path, tool: &Tool) -> Option<String> {
     if !exe.exists() {
@@ -494,6 +519,18 @@ mod tests {
     }
     /// D43：版本目录占位 glob——取 semver 最大在位版本（0.16.0 压过 0.9.0，字典序反例）；
     /// 定版形态直替换；无在位时 0.0.0 填充（探测 None=未装）。
+    /// D49：update 漂移三态——一致 skip、落后补装、领先如实报；未装与解析失败保守按落后。
+    #[test]
+    fn 锁定漂移_三态判定() {
+        assert_eq!(pin_drift(Some("1.2.0"), "1.2.0"), PinDrift::Current);
+        assert_eq!(pin_drift(Some("1.1.5"), "1.2.0"), PinDrift::Behind);
+        assert_eq!(pin_drift(Some("1.2.1"), "1.2.0"), PinDrift::Ahead);
+        assert_eq!(pin_drift(None, "1.2.0"), PinDrift::Behind, "未装按落后补装");
+        // 数值段比较而非字符串序（v9 不压 v24 的同源教训）
+        assert_eq!(pin_drift(Some("9.0.0"), "24.0.0"), PinDrift::Behind);
+        assert_eq!(pin_drift(Some("garbage"), "1.2.0"), PinDrift::Behind, "解析失败保守落后");
+    }
+
     #[test]
     fn 版本目录占位_glob取semver最大与定版替换() {
         let dir = tempfile::tempdir().expect("临时目录");

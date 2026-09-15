@@ -13,6 +13,7 @@ use std::path::Path;
 use clap::{Parser, Subcommand};
 
 use ark::catalog::{self, Catalog};
+use ark::toolver;
 use ark::install::{install_tool, InstallOptions, InstallOutcome};
 use ark::omerr::OmeError;
 use ark::render;
@@ -1025,19 +1026,46 @@ fn cmd_update(cat: &Catalog, env_root: &Path, tool: &str, force: bool) -> Result
         }
         let step = resolve_tool(name, def, &ropts).and_then(|r| {
             if def.pin_tag() == Some(r.tag.as_str()) {
-                eprintln!(
-                    "[INFO] {name} 已是最新: {}",
-                    def.pin_version().unwrap_or("")
-                );
-                emit_block(
-                    &mut first,
-                    vec![
-                        kv("tool", name),
-                        kv("action", "skipped"),
-                        kv("version", def.pin_version().unwrap_or("")),
-                    ],
-                );
-                return Ok(());
+                // D49 漂移收口：云端无新版（resolve==pin）时再对照本机 installed 三态——
+                // 一致才 skip；落后/未装真装 pin 版；领先如实报（消提示归数据面滚锁）。
+                let installed = toolver::exe_path(def, env_root)
+                    .ok()
+                    .and_then(|exe| toolver::installed_version(&exe, def));
+                let pin = def.pin_version().unwrap_or("");
+                match toolver::pin_drift(installed.as_deref(), pin) {
+                    toolver::PinDrift::Current => {
+                        eprintln!("[INFO] {name} 已是最新: {pin}");
+                        emit_block(
+                            &mut first,
+                            vec![
+                                kv("tool", name),
+                                kv("action", "skipped"),
+                                kv("version", pin),
+                            ],
+                        );
+                        return Ok(());
+                    }
+                    toolver::PinDrift::Ahead => {
+                        eprintln!(
+                            "[INFO] {name} 已装 {} 领先锁定 {pin}，保持现状；消 status 漂移提示需数据面滚锁",
+                            installed.as_deref().unwrap_or("")
+                        );
+                        emit_block(
+                            &mut first,
+                            vec![
+                                kv("tool", name),
+                                kv("action", "skipped"),
+                                kv("version", pin),
+                            ],
+                        );
+                        return Ok(());
+                    }
+                    // Behind（含未装）：补装 pin 版，落到下方 install_tool
+                    _ => eprintln!(
+                        "[INFO] {name} 本机 {} 落后锁定 {pin}，补装锁定版",
+                        installed.as_deref().unwrap_or("未装")
+                    ),
+                }
             }
             match install_tool(cat, env_root, name, &r, &iopts) {
                 Ok(out) => {
@@ -1099,7 +1127,7 @@ fn cmd_status(cat: &Catalog, env_root: &Path) -> Result<(), String> {
         .collect();
     if !updatable.is_empty() {
         eprintln!(
-            "[HINT] 版本落后锁定，升级: ark update {}",
+            "[HINT] 版本与锁定不一致，升级或滚锁: ark update {}",
             updatable.join(",")
         );
     }
