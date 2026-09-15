@@ -106,7 +106,7 @@
 
 > 当前目标的进程：只记录当前这一个目标的进行状态。
 
-- 当前目标：D47 OfficeCLI 升格自维护 fork（2026-09-15 立项）：修 win 坏、接管自更新、CI 发布链、ark 集成四件；锚点 PRD D47、TODO 任务行。fork release 与 ark 链路验证后达成入历史。
+- 当前目标：D47 OfficeCLI fork 与 D48 oxvg CI 链双案（2026-09-15）：两 fork 分发链已通（v1.0.151 已发布、oxvg dev 六资产），余 catalog 滚版与 lan-win 实跑回执闭环。锚点 PRD D47/D48、TODO 任务行。
 
 ## 历史
 

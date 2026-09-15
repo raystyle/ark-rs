@@ -104,6 +104,7 @@
 | 2026-09-14 | `docs\diary\2026-09-14-ome兼容面收口跨仓对线与CI撤双附.md` | D41 ome 兼容面收口：跨仓三轮对线、CI 撤双附、别名停建清理、桶 30 对象全清终态 |
 | 2026-09-14 | `docs\diary\2026-09-14-D46windows构建切gnu交叉编译.md` | D46 Windows 构建切 gnu 交叉：CI 交叉岗、self update 三层读序、codex 与 ohmycloud 双线对线修正，v1.2.2 封版 |
 | 2026-09-14 | `docs\diary\2026-09-14-临时envroot注册PATH闸.md` | 舰队报障修复：add_user_path 设 temp 闸，探测与沙盒装不落用户持久 PATH |
+| 2026-09-15 | `docs\diary\2026-09-15-双fork分发链落地.md` | OfficeCLI v1.0.151 发布（根因反转与 selftest 冒烟）与 oxvg CI 链（CI 面 CLI 一条线），双 fork 分发链通 |
 
 ## 错误速查分类
 
