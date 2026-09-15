@@ -1,98 +1,62 @@
 # AGENTS.md
 
-本文件是协作规则的**最高约束**，四段职责依次为：**项目定位**、**工作规则**、**意图路由**、**资源索引**。只留规则骨架与指向，细则唯一权威在对应 G/R 文档（摘要层铁律：双份并行必漂移）。
+> Ark（Agent Runtime Kit，CLI 名 `ark`；D41 前名 ome/Oh My Env）是本机跨平台环境部署管理 CLI（Windows / Linux / macOS），独立仓库：50 个工具的版本解析、下载、校验、解压、PATH 注册、pin 锁定、更新与 doctor 诊断。一个标准、一个配置；下载默认走兄弟仓 ohmycloud 的 env.ohmygh.com 镜像、官方渠道兜底（D44）。本文件是协作规则的**最高约束**（五节合同，dev-evo 形态，ADR-0001 迁移）；细则唯一权威在对应 G/R 文档（摘要层铁律：双份并行必漂移）。
 
-## 一、项目定位
+## Commands
 
-1. **本质**：Ark（Agent Runtime Kit，CLI 名 `ark`；D41 前名 ome/Oh My Env，旧名环境变量与部署位读回兼容；`ome` 别名与 ome/ 分发面 2026-09-14 水位清零收口）是本机跨平台环境部署管理 CLI（Windows / Linux / macOS），独立仓库。负责 50 个工具（agent 四家、自管主条目与过渡条目 ark/ome、herdr/hst/omc 会话治理与控制面、其余运行时编译器与命令工具）的版本解析、下载、校验、解压、PATH 注册、pin 锁定、更新与 doctor 诊断（系统 / 依赖两层，D30 收窄）。一个标准、一个配置。成功标准：命令在部署系统上功能完整。下载默认走兄弟仓 ohmycloud 的 env.ohmygh.com 镜像、官方渠道兜底（D44 反转，2026-09-13 用户裁定）。
-2. **边界**：只管本机（落在哪台机器就管哪台：Windows / Linux / macOS）。不做远程编排与五端总台。下载分发基建归兄弟仓 **ohmycloud**（域名 env.ohmygh.com；**镜像为主通道、官方渠道兜底**（D44 反转，2026-09-13 用户裁定；D08 原官方优先回落语义退役），有 sha 锚（catalog pin、latest 段边车或官方清单）必校验，锚不符视同失败换道）。跨仓协调（周知、回执与种子对账）一律走 herdr 会话同步，不再发 ISSUE（2026-09-10 裁；细则 R014；catalog 为唯一权威）。agent 四家（claude / codex / grok / kimi）**二进制安装**由 ark catalog 纳管（D07，PATH 在位即跳过）；agent 配置、hook、编排归 ohmyagents；omc agent deploy 已全面委托 ark（D29，细则 R014 六；omc 侧调用 `ome install` 的契约面换 `ark install` 加别名过渡窗口，D41）。三活仓本地路径统一登记（重叠功能互相 review 直读对方仓代码，2026-09-10 裁；ark 仓 2026-09-12 更名迁移）：ohmycloud = `D:\ohmycloud`、ark_rs = `D:\ark_rs`（GitHub raystyle/ark_rs，D41 前名 ohmyenv-rs，2026-09-13 由 ark-rs 再更名）、ohmyagents-rs = `D:\ohmyagents-rs`。ark 所管软件的清单与下载资源运营托管 omc，ark 自身代码、发版与二进制自更新自理（2026-09-10 裁，标准 R015）。ohmycloud 与 ohmyagents 源仓只读、零改动。Linux 与 macOS 用系统标准目录策略，不进 `D:\ohmyenv`（细节 R010 / R011）。
-3. **管理对象**：50 工具名录（**清单数据权威在 ohmycloud catalog-seed 与云端三件套**，D37 完全解耦；本仓持格式契约 R001 与消费逻辑，`tests\fixtures\tools.toml` 为夹具；agent 存量原地纳管）；EnvRoot 即工具泊位根（Windows `D:\ohmyenv`，Linux `~/.local/share/ohmyenv`，物理目录不随更名动；可经 `--env-root` / `ARK_ROOT`（读回 `OHMYENV_ROOT`）覆盖）；用户 PATH（Windows 注册表 `HKCU\Environment\Path`，POSIX 侧见 R010 / R011）。
-4. **方案索引**：数据模式 R001；清单发布更新与播种标准 R015；项目简介与命令 `README.md`；研究 `docs\research\`（文件名即标题）。
+意图与命令映射（参数与语义全表见 `README.md` 与 `PLAN.md`；功能原语口径 PRD D10/D15/D16：doctor/install/status 三原语，其余为派生面）：
 
-## 二、工作规则
+- 查版本：`ark query`（省略则全量；只解析不下载）
+- 装工具：`ark install`（省略则全量；下载到 EnvRoot，注册 PATH、写注册表与配置；工具参收逗号串）
+- 更新：`ark update`（省略则全量；拉云端最新安装，不回写锁定（锁定归数据面 D37）；云端无新版而本机落后锁定时补装锁定版（D49）；临时钉版走 pin）
+- 锁定：`ark pin`（省略则全量；lock 为别名）
+- 看状态：`ark status`（锁定 / 已装 / PATH 三态对照）
+- 自部署：`ark init`（self-deploy 别名；二进制进用户程序目录、catalog 同步、注册 PATH）
+- 查刷软件清单：`ark catalog`（status 看解析面与签名态，sync 立即从云端刷新过 minisign 校验；自动刷新按 `ARK_CATALOG_TTL`，`ARK_OFFLINE=1` 关，旧名 `OME_*` 读回）
+- 查文档：先搜 `INDEX.md` 定位再读（迁移期）；搜索方法：`rg -n "关键词" INDEX.md`、`rg --files docs | rg 关键词`、`rg -n "关键词" docs/research docs/references`；`mq -F grep '.h2' docs/research/*.md`（section 必带 -A）；`ast-grep outline -l rs src/`（fn 模式必须带 body 通配 `$$$`、可见性写进模式）
+- 验证门禁（每次交付必跑，裸跑看退出码）：`rumdl check .` 加 `uv run --script .tools/mdcharlint.py .` 加 `uv run --script .tools/md-ref-scan.py` 加 `uv run --script .tools/md-heading-scan.py`；结构大改加跑 `uv run --script .tools/md-replace.py`；体系合规加 `uv run ~/.claude/skills/dev-evo/scripts/check.py .`
+- 测试：`cargo test --release --locked`；真实环境测试按 `ARK_TEST_REAL`（读回 `OME_TEST_REAL`）闸门 skip
+- 提交：`feat:` / `docs:` / `fix:` / `chore:` 前缀加中文描述；一次提交只做一件事；未经指示不推远端
 
-### 工作节奏
+## Must
 
-1. **每轮对话**：先核对四原语（`PRD.md`、`GOAL.md`、`TODO.md`、`PLAN.md`）；实质推进当场更新。禁止不核对就干活、偏离当前目标、推进了不更新。
-2. **踩坑时**：当场按当前最大号接编 MNNN 落 `docs\mistakes\` 一行；同根因同型坑合并进已有条目；深挖落 research。禁止只留在对话里反复试错。
-3. **发现问题时**：走五步闭环（G003）：定位（先搜 INDEX）、归类（错修文档、缺补规则、知识落研究、出错记 mistakes、实证进 references）、修正（改在源头，下游同步）、验证（`rumdl check .` 加 `.tools` 三扫描）、提交（一事一提交，diary 记钩子）。禁止跳过定位直接改、只修表象不回写体系、修完不跑验证。
-4. **交付变更时**：改代码同步对应文档，改文档同步索引与 `docs\diary\`。禁止只改代码不落文档、改了文档不更新索引。
-5. **经验沉淀（G004 强规则）**：成功 plan 归 `docs\proven\`；实证做法与多犯沉淀的正确工作流进 `docs\references\` 并挂路由或 INDEX；同型坑二犯以上升格 references 并互指。禁止 `[经验]` 断言只留研究不落 references、错误只记现象不记根因、`[推断]`/`[假设]` 跳级、一条知识两个权威落位。
-6. **提交时**：`feat:` / `docs:` / `fix:` / `chore:` 前缀加中文描述；一次提交只做一件事；未经指示不推远端。分支为 GitHub Flow 单干变体（直推 main 为基线，2026-09-08 裁，细节 ROADMAP 开发流程节）：并行会话或危险大改开短命分支，验证后 squash 进 main 并删。
+- 每轮对话先核对任务面（`docs/requirements/` REQ 与 TODO；迁移期含 PRD 冻结索引）；实质推进当场更新，禁止不核对就干活、偏离当前目标、推进了不更新
+- 新需求先立 REQ（draft 起，实现回填 trace）；不可逆技术选择先立 ADR（`docs/adr/`，状态机 proposed 到 accepted 到 superseded）
+- 踩坑当场落档：流程与决策类进 ADR 或 diary，行级坑按当前最大号接编；同根因同型坑合并；深挖落 research。禁止只留在对话里反复试错
+- 发现问题走五步闭环（G003）：定位（先搜索引）、归类（错修文档、缺补规则、知识落研究、出错记档、实证进 references）、修正（改在源头，下游同步）、验证（门禁全跑）、提交（一事一提交，diary 记钩子）
+- 交付变更时改代码同步对应文档，改文档同步索引与 `docs/diary/`；版本级成果进 CHANGELOG
+- 经验沉淀（G004 强规则）：成功方案回填 REQ trace 与关联 ADR；实证做法与多犯沉淀的正确工作流进 `docs/references/` 并挂路由或索引；同型坑二犯以上升格 references 并互指。禁止 `[经验]` 断言只留研究不落 references、错误只记现象不记根因、`[推断]`/`[假设]` 跳级、一条知识两个权威落位
+- 写 Rust 先按 R005 双通道查 crates.io / GitHub 选最流行稳定库，最少代码接上，优先组合不自写协议、解压、HTTP、哈希、CLI 解析；**实质代码改动（新模块、跨文件接线、并发与进程管理）推送前必须经对线 review（herdr 驱动 codex 或用户点名复核），对线结论与修复回执入 diary**（用户裁 2026-09-11）
+- 写文档遵守 G001（树形、标题干净、文件名即标题、rumdl 与 .tools/mdcharlint.py 禁字机检）；写研究与测试文档事实性断言必标六态之一（G002）：`[实证]`、`[推断]`、`[经验]`、`[记忆]`、`[假设]`、`[直觉]`
+- 写测试遵守 R004（三层分层集成优先、期望值来自独立来源、断言只写稳定字段、`TestResult` 加 `?`、真实环境测试闸门 skip）
+- 写临时脚本归 `.tools/`（Python PEP 723 头用 `uv run --script`，选库走 R008/R009）
+- 文档义务表：新需求澄清完 PRD/REQ 登记；目标立项起 REQ 与 TODO；选型完成 S 文档加索引；改源码同步 README 与 guide；写测试同步测试规范；写脚本同步 `.tools/README.md`；踩坑当场记档；方案达成回填 trace 与 GOAL 历史行；每次提交 diary 记钩子；发布后 CHANGELOG 封版加 herdr 知会 ohmycloud（D29）；文档结构变更跑断链回归
 
-### 写作编码
+## Must not
 
-7. **执行命令与写文件**：Windows 用 PowerShell 7（`pwsh`），Linux / macOS / WSL 用平台常规 shell；Markdown / Rust 源码 UTF-8；兼容 5.1 的 ps1 用 UTF-8 BOM。禁止默认 `powershell.exe` 5.1、无 BOM 中文 ps1 给 5.1 读。
-8. **写 Rust**：先按 R005 双通道查 crates.io / GitHub 选最流行稳定库，最少代码接上，优先组合不自写协议、解压、HTTP、哈希、CLI 解析；**实质代码改动（新模块、跨文件接线、并发与进程管理）推送前必须经对线 review（herdr 驱动 codex 或用户点名复核），对线结论与修复回执入 diary**（用户裁 2026-09-11：单方直推两犯）。禁止现成库能完成时从零实现、引入冷门实验 crate、跳过对线直推。
-9. **写文档**：遵守 G001（树形、标题干净、文件名即标题、rumdl 与 `mdcharlint.py` 禁字机检，豁免区见 G001 二）。禁止标题带括号、口号或破折号；整段混杂不成树。
-10. **写研究与测试文档**：事实性断言必标六态之一（G002）：`[实证]`、`[推断]`、`[经验]`、`[记忆]`、`[假设]`、`[直觉]`。禁止把「没验证」写成「已验证」、断言不标六态、猜测冒充结论。
-11. **写测试**：遵守 R004。三层分层集成优先；冒烟断退出码、回归黄金文件、验收对照 oracle；期望值来自独立来源，断言只写稳定字段；`TestResult` 加 `?`；真实环境测试按 `ARK_TEST_REAL`（读回 `OME_TEST_REAL`）闸门 skip；设施收 `test-util` feature。禁止重言式断言、测试塞 `mod tests{}`、默认 mock、计时进断言、只测 happy path。
-12. **写临时脚本**：可复用脚本归 `.tools\`（Python PEP 723 头用 `uv run --script`，选库走 R008 / R009；结构大改跑 `md-ref-scan.py` 断链回归）。禁止脚本散落、网页当选型接口、sed 批改中文与反斜杠路径（用 `md-replace.py`）。
+- 禁止把「没验证」写成「已验证」、断言不标六态、猜测冒充结论
+- 禁止跳过定位直接改、只修表象不回写体系、修完不跑验证
+- 禁止只改代码不落文档、改了文档不更新索引
+- 禁止现成库能完成时从零实现、引入冷门实验 crate、跳过对线直推
+- 禁止标题带括号、口号或破折号；整段混杂不成树
+- 禁止重言式断言、测试塞 `mod tests{}`、默认 mock、计时进断言、只测 happy path
+- 禁止脚本散落、网页当选型接口、sed 批改中文与反斜杠路径（用 .tools/md-replace.py）
+- Windows 禁止默认 `powershell.exe` 5.1、无 BOM 中文 ps1 给 5.1 读（用 PowerShell 7 `pwsh`）
 
-### 文档义务表
+## Read first
 
-> 动作到必须对齐的文档；漏一件即流程缺口。
+1. 本文件（五节合同）
+2. `PRD.md`（D01 至 D49 冻结决策索引）与 `docs/adr/README.md`（ADR-0001 起现行决策）
+3. `docs/requirements/README.md`（REQ 索引）与 `TODO.md`
+4. `README.md`（项目简介与命令）与 `PLAN.md`
+5. `INDEX.md`（唯一索引：编号表、目录结构、代码文件位置；迁移期在役，ADR-0001 批 3 拆解）
+6. 细则权威：数据模式 R001；清单标准 R015；测试 R004；选型 R005；协调 R014；元规范 G001 至 G004；坑查 M1xx（并入 ADR 批见互指）
+7. `ROADMAP.md` / `CHANGELOG.md` 查阶段与历史；`docs/diary/` 当天钩子
 
-| 动作 | 时机 | 义务 |
-| --- | --- | --- |
-| 新需求与澄清 | 澄清完成 | PRD 登记与状态流转，禁止静默假设 |
-| 目标立项 | 开工前 | GOAL 起点与锚点、PLAN、TODO；GOAL 回指 D 编号 |
-| 选型与调研 | 研究完成 | S 文档（六态）+ INDEX 研究节 |
-| 写改源码与配置 | 改动完成 | README 同步；行为基线变化同步 guide；版本级成果进 CHANGELOG |
-| 写测试 | 新层或新面 | 测试规范 guide 同步；INDEX 测试行 |
-| 写脚本 | 归档时 | `.tools\README.md` 清单行 |
-| 踩坑 | 当场 | mistakes 接编一行；INDEX 错误节同步 |
-| 方案达成 | 验收全绿 | proven 回填、GOAL 历史行、INDEX 归档节、TODO 残表清退留指针 |
-| 每次提交 | 提交后 | diary 当天记钩子 |
-| 发布 | tag 推送后 | CHANGELOG 封版、ROADMAP 阶段状态；herdr 会话知会 ohmycloud 同步 omc tool status 镜像锚（D29） |
-| 文档结构变更 | 改名移目录后 | INDEX 同步；断链回归必跑 |
+## 环境
 
-## 三、意图路由
-
-> 需求意图与命令映射的摘要层；参数与语义全表见 `README.md` 与 `PLAN.md`。
-> 功能原语口径（PRD D10/D15/D16）：doctor（检测诊断）、install（幂等安装：下载加 PATH/注册表/配置）、status（三态对照）三原语，
-> 其余命令为派生面（query 解析前置、update 安装时变、pin 锚操作、
-> verify/heal 断言与自愈组合、init/self 辅助）。
-> 仓库 `D:\ark_rs`（github.com/raystyle/ark_rs，D41 前名 ohmyenv-rs，2026-09-13 由 ark-rs 再更名）；EnvRoot `D:\ohmyenv`（只放被管理工具，不放 ark 自身）。
-
-- **查版本**：`ark query`（省略则全量；只解析版本与资产，不下载）
-- **装工具**：`ark install`（省略则全量；下载到 EnvRoot，并注册 PATH、写注册表与配置）
-- **更新**：`ark update`（省略则全量；拉云端最新安装，不回写锁定，锁定归数据面 D37；临时钉版走 pin）
-- **锁定**：`ark pin`（省略则全量；lock 为别名）
-- **看状态**：`ark status`（锁定 / 已安装 / PATH 三态对照）
-- **自部署**：`ark init`（self-deploy 别名；二进制进用户程序目录、catalog 同步、注册 PATH、接管旧 ome 部署位）
-- **查文档**：先搜 `INDEX.md` 定位再读；方法见四
-- **查/刷软件清单**：`ark catalog`（status 看解析面、云端锚与签名态，sync 立即从云端刷新并过 minisign 签名校验；自动刷新按 `ARK_CATALOG_TTL` 走，`ARK_OFFLINE=1` 关，旧名 `OME_*` 读回；公钥内嵌二进制，私钥只在开发机与 CI 密钥库）
-- **项目工具**：`.tools\`（清单 `.tools\README.md`）；门禁四件套：`md-ref-scan.py` 断链、`md-heading-scan.py` 标题、`mdcharlint.py` 禁字、`rumdl check .`
-
-命令真机对照基准为本机 catalog 与 EnvRoot 部署态；禁止把开发中能力当已交付宣称。
-
-## 四、资源索引
-
-> 定位看 `INDEX.md`（唯一索引：编号表、目录结构、代码文件位置）。本节是配合 INDEX 的搜索与分析方法。
-
-**速记**：`P` 归档 / `S` 研究 / `R` 参考 / `G` 元规范 / `M` 错误（M1xx 分类、M0xx 行级）；根四原语 `PRD` / `GOAL` / `PLAN` / `TODO`。
-
-**搜索方法（文档）**：
-
-```powershell
-rg -n "关键词" INDEX.md                        # 1 先搜总索引
-rg --files docs | rg 关键词                     # 2 按文件名搜
-rg -n "关键词" docs\research docs\references    # 3 全文搜研究参考
-rg -n "关键词" docs\mistakes\                   # 4 搜错误处理
-
-# mq（markdown 结构查询；section 必须带 -A）
-mq -F grep '.h2' docs\research\*.md             # 按节标题跨文件定位
-mq -A 'section::section(., "关键结论")' 文档     # 抽整节内容
-```
-
-**搜索方法（代码）**：
-
-```powershell
-ast-grep outline -l rs --json src\              # 模块符号表
-ast-grep run -p 'pub fn name($$$) $$$' -l rs    # 按名定位定义
-```
-
-坑速查：mq 无 `.s` 选择器（用 section 模块）；ast-grep 的 fn 模式必须带 body 通配 `$$$`、可见性写进模式（ohmyagents M107）。
-
-**分析路径**：改产品行为先读 R001 再回 `README.md` 与 `PLAN.md`；踩坑查 M1xx；选库走 R005；测试 R004；新想法走 G003 五步；定位代码先 INDEX 再 ast-grep；抽节用 mq section。
+- 平台矩阵：Windows（PowerShell 7）/ Linux / macOS / WSL（平台常规 shell）；仓库 `D:\ark_rs`（GitHub raystyle/ark_rs）；EnvRoot `D:\ohmyenv`（POSIX `~/.local/share/ohmyenv`；`--env-root` / `ARK_ROOT` 读回 `OHMYENV_ROOT` 可覆盖）
+- 编码：Markdown 与 Rust 源码 UTF-8；兼容 5.1 的 ps1 用 UTF-8 BOM
+- 分支模型：GitHub Flow 单干变体（直推 main 为基线，2026-09-08 裁）；并行会话或危险大改开短命分支，验证后 squash 进 main 并删
+- 门禁：dev-evo check.py（PE-01 至 PE-12）加本仓四件套（rumdl 加 md 三扫描）并存
+- 当前阶段：v1.2.2 已发（D46 gnu 交叉）；Unreleased 窗攒 D49 与 bug4；D41 ome 兼容面与 D46/D47/D48 fork 分发链均已闭环

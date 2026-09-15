@@ -17,3 +17,7 @@ enabled = false
 
 [MD036]
 enabled = false
+
+# ADR/REQ 模板形态（dev-evo）：frontmatter title 不计为顶级标题，正文 h1 为唯一
+[MD025]
+front_matter_title = ""
