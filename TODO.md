@@ -4,13 +4,16 @@
 
 ## 当前目标
 
-D46 Windows 构建切 gnu 交叉编译（2026-09-14 用户裁定，摆脱 VC）：CI 交叉岗替换 msvc 岗、self update 资产读序三层（gnu 主名、msvc 回退、ome 兼容）；stable 封版另裁，版本号不动。
+D47 OfficeCLI 升格自维护 fork（2026-09-15 立项，用户裁定接管编译维护、自更新与自维护分发）：修 win 构建坏、接管自更新、fork CI 发布链、ark 无缝集成四件；fork 仓 ~/OfficeCLI，ark 侧管集成与登记。
 
 ## 任务进度清单
 
 | 任务项 | 进度 | 说明 | 日期 |
 | --- | --- | --- | --- |
 | D46：Windows 构建切 gnu 交叉 | 已完成 | 当日闭环：CI 四岗绿（run 34840170118），dev release 出 ark-x86_64-pc-windows-gnu.exe，桶 ark/dev 资产与边车双 200；对线双线（codex F1/G1-G5 加 ohmycloud H1）全修并入原批（含 seed 三元组切 gnu 与 404 窗口期 skip、doctor 探针同源、单拉 release）；本机交叉复验 PE32+ 12.4MB、cargo test --release 138 全绿；**v1.2.2 已封版**（tag CI 四岗绿、stable release 出 gnu exe、镜像 ark/stable 段灌段） | 2026-09-14 |
+| D47：OfficeCLI fork 批 1（修 win 坏加自更新接管） | 已完成 | 侦察定案：150 win 崩根因为 Pipelines 传递依赖（System.CommandLine preview）被 win 面 trim 裁出 bundle（linux 闭包本含故本地绿；同 SDK 双 run 排除环境漂移）；AppData 副装真源是 SKILL.md 引导的上游 install 通道（Installer.cs 本体已有 on-PATH 原地更新语义）。落地三提交（fix 闭包加 smoke、chore 1.0.151、feat 自更新源切 env 镜像主加 fork GitHub 兜底）过 codex 对线推 fork main；本地 linux publish 全绿 | 2026-09-15 |
+| D47：fork CI 验证与发版 v1.0.151 | 进行中 | workflow_dispatch 全 RID 验证后 tag 发版（9 资产同形加 SHA256SUMS，Draft Release 闸门）；win 资产需 lan-win 实跑（--version 加 __update-check__） | 2026-09-15 |
+| D47：ark 集成与 catalog 滚版 | 待办 | fork release 后 ohmycloud 滚 [tools.officecli] pin 1.0.151 加镜像；ark 侧 install/update officecli 链路验证 | 2026-09-15 |
 | 临时 envroot 的 PATH 注册闸（舰队报障修复） | 已完成 | lan-win 注册表沉淀 Temp 段根因为 `add_user_path` 无 temp 闸（bin_dir 随临时 envroot 拼接后直进注册面）；`platform.rs` 一处闸全调用面（is_temp_path 纯函数入测，canonicalize 尽力归一）；linux_install 两用例沙盒挪 `target/` 下保 profile 注册语义；lan-win 遗留段由 ohmycloud 手工清（Temp 前缀全可删） | 2026-09-14 |
 | D43：zig 版本去锁 | 已完成 | v1.2.0 已发：对线两轮 CONFIRM（Z1 glob 双分隔符修复防幂等静默失效）；对岸数据 dispatch 后 WSL 端到端绿（query latest、镜像优先官方锚校验、占位布局定版、幂等二连/update skip、zig version 0.16.0 跑通） | 2026-09-13 |
 | D44：下载链反转镜像优先 | 已完成 | v1.1.1 已发版（tag CI 三平台绿、stable 段 200、WSL self update 到位）；对线两轮（F1-F7 加 G1-G4）全修 CONFIRM；WSL 实证：1.1.1 到位、go mirror 节 env 加 goproxy 语义键落 GOENV（[OK] mirror 已写）、清缓存重装实证「已下载（镜像优先）」 | 2026-09-13 |
