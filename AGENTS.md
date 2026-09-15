@@ -20,9 +20,9 @@
 
 ## Must
 
-- 每轮对话先核对任务面（`docs/requirements/` REQ 与 TODO；迁移期含 PRD 冻结索引）；实质推进当场更新，禁止不核对就干活、偏离当前目标、推进了不更新
+- 每轮对话先核对任务面（`docs/requirements/` REQ 与 AGENTS 环境节；历史决策查 PRD 冻结索引）；实质推进当场更新，禁止不核对就干活、偏离当前目标、推进了不更新
 - 新需求先立 REQ（draft 起，实现回填 trace）；不可逆技术选择先立 ADR（`docs/adr/`，状态机 proposed 到 accepted 到 superseded）
-- 踩坑当场落档：流程与决策类进 ADR 或 diary，行级坑按当前最大号接编；同根因同型坑合并；深挖落 research。禁止只留在对话里反复试错
+- 踩坑当场落档：构成纪律或决策的立 ADR，过程性的记 diary，同根因同型坑合并（错误模式库 ADR-0002 至 ADR-0006）；深挖落 research。禁止只留在对话里反复试错
 - 发现问题走五步闭环（G003）：定位（先搜索引）、归类（错修文档、缺补规则、知识落研究、出错记档、实证进 references）、修正（改在源头，下游同步）、验证（门禁全跑）、提交（一事一提交，diary 记钩子）
 - 交付变更时改代码同步对应文档，改文档同步索引与 `docs/diary/`；版本级成果进 CHANGELOG
 - 经验沉淀（G004 强规则）：成功方案回填 REQ trace 与关联 ADR；实证做法与多犯沉淀的正确工作流进 `docs/references/` 并挂路由或索引；同型坑二犯以上升格 references 并互指。禁止 `[经验]` 断言只留研究不落 references、错误只记现象不记根因、`[推断]`/`[假设]` 跳级、一条知识两个权威落位
@@ -30,7 +30,7 @@
 - 写文档遵守 G001（树形、标题干净、文件名即标题、rumdl 与 .tools/mdcharlint.py 禁字机检）；写研究与测试文档事实性断言必标六态之一（G002）：`[实证]`、`[推断]`、`[经验]`、`[记忆]`、`[假设]`、`[直觉]`
 - 写测试遵守 R004（三层分层集成优先、期望值来自独立来源、断言只写稳定字段、`TestResult` 加 `?`、真实环境测试闸门 skip）
 - 写临时脚本归 `.tools/`（Python PEP 723 头用 `uv run --script`，选库走 R008/R009）
-- 文档义务表：新需求澄清完 PRD/REQ 登记；目标立项起 REQ 与 TODO；选型完成 S 文档加索引；改源码同步 README 与 guide；写测试同步测试规范；写脚本同步 `.tools/README.md`；踩坑当场记档；方案达成回填 trace 与 GOAL 历史行；每次提交 diary 记钩子；发布后 CHANGELOG 封版加 herdr 知会 ohmycloud（D29）；文档结构变更跑断链回归
+- 文档义务表：新需求澄清完 PRD/REQ 登记；目标立项起 REQ 与 TODO；选型完成 S 文档加索引；改源码同步 README 与 guide；写测试同步测试规范；写脚本同步 `.tools/README.md`；踩坑当场记档（纪律类立 ADR）；方案达成回填 trace 与 GOAL 历史行；每次提交 diary 记钩子；发布后 CHANGELOG 封版加 herdr 知会 ohmycloud（D29）；文档结构变更跑断链回归
 
 ## Must not
 
@@ -50,7 +50,7 @@
 3. `docs/requirements/README.md`（REQ 索引）与 `TODO.md`
 4. `README.md`（项目简介与命令）与 `PLAN.md`
 5. `llms.txt`（agent 检索面：读序与代码文件位置；ADR-0001 批三起 INDEX 退役）
-6. 细则权威：数据模式 R001；清单标准 R015；测试 R004；选型 R005；协调 R014；元规范 G001 至 G004；坑查 M1xx（并入 ADR 批见互指）
+6. 细则权威：数据模式 R001；清单标准 R015；测试 R004；选型 R005；协调 R014；元规范 G001 至 G004；错误模式查 ADR-0002 至 ADR-0006（原 M 系列并入，M0xx 编号附录内可检）
 7. `ROADMAP.md` / `CHANGELOG.md` 查阶段与历史；`docs/diary/` 当天钩子
 
 ## 环境

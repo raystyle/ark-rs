@@ -5,4 +5,4 @@
 
 | id | 状态 | 标题 | trace |
 |---|---|---|---|
-| REQ-0001 | draft | 文档体系全量迁移 dev-evo | check.py 全 PASS 加四件套绿 |
+| REQ-0001 | implemented | 文档体系全量迁移 dev-evo | check.py 全 PASS 加四件套绿 |

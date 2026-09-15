@@ -1,4 +1,34 @@
-# M103-PATH与注册表-错误
+---
+id: ADR-0004
+title: PATH 与注册表错误模式归档
+status: accepted
+date: 2026-09-15
+deciders:
+  - 用户（ADR-0001 批四裁定：mistakes 并入 ADR）
+supersedes: []
+superseded_by: null
+tags: [mistakes-archive]
+---
+
+# ADR-0004 PATH 与注册表错误模式归档
+
+## Context
+
+用户 PATH 与注册表面的行级错误史（HKCU、展开、去重、广播）（原 mistakes 分类文件 M103-PATH与注册表-错误.md，ADR-0001 批四并入）。M009/M010/M011/M027 四类错误模式。错误史封存不改写，同根因聚合条目保留最早编号。
+
+## Decision
+
+错误模式与正解纪律以本 ADR 附录表为唯一权威；新踩坑当场记 diary，构成纪律变更的立新 ADR（M0xx 行级编号制度随本批退役）。
+
+## Consequences
+
+- 查错误模式从 `docs/adr/README.md` 入（编号 M0xx 在附录表内仍可检索）。
+- 历史 diary 中 M0xx 引用为当时事实记录，不改写。
+- 附录原表封存：新错误不再接编 M0xx，以 diary 与新 ADR 承载。
+
+## 附录 原始条目表
+
+> M103-PATH与注册表-错误
 
 > 用户 PATH 注册、profile 标记块、死链判定错误速查。
 

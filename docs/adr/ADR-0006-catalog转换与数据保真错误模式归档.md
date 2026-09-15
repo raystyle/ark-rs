@@ -1,4 +1,34 @@
-# M106-catalog转换与数据保真-错误
+---
+id: ADR-0006
+title: catalog 转换与数据保真错误模式归档
+status: accepted
+date: 2026-09-15
+deciders:
+  - 用户（ADR-0001 批四裁定：mistakes 并入 ADR）
+supersedes: []
+superseded_by: null
+tags: [mistakes-archive]
+---
+
+# ADR-0006 catalog 转换与数据保真错误模式归档
+
+## Context
+
+catalog 转换合并与数据保真的行级错误史（原 mistakes 分类文件 M106-catalog转换与数据保真-错误.md，ADR-0001 批四并入）。M001/M003/M014 三类错误模式。错误史封存不改写，同根因聚合条目保留最早编号。
+
+## Decision
+
+错误模式与正解纪律以本 ADR 附录表为唯一权威；新踩坑当场记 diary，构成纪律变更的立新 ADR（M0xx 行级编号制度随本批退役）。
+
+## Consequences
+
+- 查错误模式从 `docs/adr/README.md` 入（编号 M0xx 在附录表内仍可检索）。
+- 历史 diary 中 M0xx 引用为当时事实记录，不改写。
+- 附录原表封存：新错误不再接编 M0xx，以 diary 与新 ADR 承载。
+
+## 附录 原始条目表
+
+> M106-catalog转换与数据保真-错误
 
 > catalog 转换器与 tools.toml 数据保真类错误速查（一行一事，同根因合并聚合）。
 
