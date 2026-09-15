@@ -1448,7 +1448,7 @@ mod tests {
         let got = cat.select("python,python, vault ,,").expect("逗号串应拆分");
         assert_eq!(
             got,
-            vec!['python'.to_string(), 'vault'.to_string()],
+            vec!["python".to_string(), "vault".to_string()],
             "去重保序滤空"
         );
         assert!(cat.select("python,not-exist").is_err(), "任一段未知整体拒绝");
