@@ -1091,11 +1091,17 @@ fn cmd_status(cat: &Catalog, env_root: &Path) -> Result<(), String> {
     let mut drifted: Vec<String> = Vec::new();
     // 流式：每探完一个工具立即输出（探测要逐工具拉起 --version 子进程，整批探完才打印会被感知为卡顿）
     status::collect_status_with(cat, env_root, |row| {
-        // D09-3 CTA 素材：漂移（installed 与 locked 双值且不等）收集，尾部 stderr 建议
-        if let (Some(inst), Some(lock)) = (&row.installed, &row.locked) {
-            if inst != lock {
-                drifted.push(row.name.clone());
-            }
+        // D09-3 CTA 素材：漂移收集（D49 尾统一 pin_drift 数值口径，npm-tgz 不列）
+        let extract = cat
+            .tool(&row.name)
+            .ok()
+            .and_then(|d| d.extract().map(|s| s.to_string()));
+        if toolver::status_drift_hint(
+            extract.as_deref(),
+            row.installed.as_deref(),
+            row.locked.as_deref(),
+        ) {
+            drifted.push(row.name.clone());
         }
         if row.category != last_cat {
             render::header(&format!("[{}]", status::category_label(&row.category)));

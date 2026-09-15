@@ -202,6 +202,23 @@ pub fn pin_drift(installed: Option<&str>, pin: &str) -> PinDrift {
     }
 }
 
+/// status 的 drift 判定（D49 尾统一口径）：npm-tgz 类不列（版本真源在 npm registry
+/// 端上自管，catalog pin 不构成 drift 判据——omc 恒挂形态）；其余走 pin_drift 数值段
+/// 口径（git 的 .windows.N 后缀形态数值等，旧字符串比较恒列的口径差）。
+pub fn status_drift_hint(
+    extract: Option<&str>,
+    installed: Option<&str>,
+    locked: Option<&str>,
+) -> bool {
+    if extract == Some("npm-tgz") {
+        return false;
+    }
+    match (installed, locked) {
+        (Some(i), Some(l)) => pin_drift(Some(i), l) != PinDrift::Current,
+        _ => false,
+    }
+}
+
 /// 探测已装版本：exe 不存在直接 None；运行 exe 取首行非空输出按 probe_pattern 解析。
 pub fn installed_version(exe: &Path, tool: &Tool) -> Option<String> {
     if !exe.exists() {
@@ -529,6 +546,23 @@ mod tests {
         // 数值段比较而非字符串序（v9 不压 v24 的同源教训）
         assert_eq!(pin_drift(Some("9.0.0"), "24.0.0"), PinDrift::Behind);
         assert_eq!(pin_drift(Some("garbage"), "1.2.0"), PinDrift::Behind, "解析失败保守落后");
+        // git for windows 四段后缀形态：数值等即 Current（status 旧字符串比较恒列的口径差）
+        assert_eq!(pin_drift(Some("2.55.0.windows.5"), "2.55.0"), PinDrift::Current);
+    }
+
+    /// D49 尾：status drift 判定统一口径——npm-tgz 排除、数值段不等、缺值不列。
+    #[test]
+    fn status漂移判定_统一口径() {
+        assert!(!status_drift_hint(Some("npm-tgz"), Some("0.3.4"), Some("9.9.9")), "npm-tgz 不列");
+        assert!(status_drift_hint(Some("zip"), Some("1.0.0"), Some("1.1.0")), "落后列");
+        assert!(status_drift_hint(Some("zip"), Some("2.0.0"), Some("1.1.0")), "领先也列（提示滚锁）");
+        assert!(!status_drift_hint(
+            Some("msi"),
+            Some("2.55.0.windows.5"),
+            Some("2.55.0")
+        ), "git 后缀形态数值等不列");
+        assert!(!status_drift_hint(Some("zip"), None, Some("1.0.0")), "未装不列");
+        assert!(!status_drift_hint(Some("zip"), Some("1.0.0"), None), "未锁不列");
     }
 
     #[test]
