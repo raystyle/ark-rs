@@ -407,18 +407,26 @@ impl Catalog {
         })
     }
 
-    /// 子命令的工具选择：`all` 展开为全部（保序），单工具校验存在性。
+    /// 子命令的工具选择：`all` 展开为全部（保序）；单工具校验存在性；逗号串
+    /// 逐段拆分校验（D49 尾修：status HINT 教的「ark update a,b,c」此前整串被当
+    /// 单名拒收，自产提示不可执行）。重复段保序去重，空段滤除。
     pub fn select(&self, name: &str) -> Result<Vec<String>, String> {
         if name == "all" {
             return Ok(self.order.clone());
         }
-        if !self.tools.contains_key(name) {
-            return Err(format!(
-                "未知工具: {name}（catalog: {}）",
-                self.path.display()
-            ));
+        let mut out: Vec<String> = Vec::new();
+        for seg in name.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            if !self.tools.contains_key(seg) {
+                return Err(format!(
+                    "未知工具: {seg}（catalog: {}）",
+                    self.path.display()
+                ));
+            }
+            if !out.iter().any(|n| n == seg) {
+                out.push(seg.to_string());
+            }
         }
-        Ok(vec![name.to_string()])
+        Ok(out)
     }
 
     /// 按名取工具条目。
@@ -1431,6 +1439,19 @@ mod tests {
 
     fn fixture_catalog() -> Catalog {
         Catalog::parse(FIXTURE, PathBuf::from("tests/fixtures/tools.toml")).expect("夹具应能解析")
+    }
+
+    /// D49 尾修：逗号串逐段校验（status HINT 文案 join(",") 复制即跑）、保序去重、空段滤除。
+    #[test]
+    fn 选择_逗号串拆分与去重() {
+        let cat = fixture_catalog();
+        let got = cat.select("python,python, vault ,,").expect("逗号串应拆分");
+        assert_eq!(
+            got,
+            vec!['python'.to_string(), 'vault'.to_string()],
+            "去重保序滤空"
+        );
+        assert!(cat.select("python,not-exist").is_err(), "任一段未知整体拒绝");
     }
 
     /// D45：current 判定的 seq 消费——同锚且 seq 不高于已见才 current（CF 残影下
